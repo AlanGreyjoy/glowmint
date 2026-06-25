@@ -71,6 +71,9 @@ export interface RgbZone {
   index: number;
   name: string;
   led_count: number;
+  resizable: boolean;
+  leds_min: number;
+  leds_max: number;
 }
 
 export interface RgbDevice {

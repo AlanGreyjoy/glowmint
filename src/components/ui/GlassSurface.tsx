@@ -15,8 +15,9 @@ export function glassClassName(variant: GlassVariant = 'panel') {
 export function glassStyle(variant: GlassVariant = 'panel'): CSSProperties {
   return {
     background: `var(--glowmint-glass-${variant}-bg)`,
-    backdropFilter: `blur(var(--glowmint-glass-${variant}-blur))`,
-    WebkitBackdropFilter: `blur(var(--glowmint-glass-${variant}-blur))`,
+    backdropFilter: `var(--glowmint-glass-${variant}-backdrop)`,
+    WebkitBackdropFilter: `var(--glowmint-glass-${variant}-backdrop)`,
+    border: `var(--glowmint-glass-${variant}-border)`,
     boxShadow: `var(--glowmint-glass-${variant}-shadow)`,
   };
 }
@@ -31,6 +32,7 @@ export function GlassSurface({
   return (
     <Paper
       withBorder={false}
+      bg="transparent"
       className={[glassClassName(variant), className].filter(Boolean).join(' ')}
       style={{ ...glassStyle(variant), ...style }}
       {...props}

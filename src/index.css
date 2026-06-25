@@ -1,19 +1,40 @@
 :root {
   color-scheme: dark;
 
-  /* Glass surface tokens */
-  --glowmint-glass-panel-bg: rgba(255, 255, 255, 0.045);
-  --glowmint-glass-panel-blur: 16px;
-  --glowmint-glass-panel-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Glass surface tokens — layered frost (light highlight + dark base) for readable blur */
+  --glowmint-glass-panel-bg:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.32) 0%,
+      rgba(255, 255, 255, 0.14) 42%,
+      rgba(210, 220, 240, 0.08) 100%
+    ),
+    rgba(10, 12, 18, 0.82);
+  --glowmint-glass-panel-backdrop: blur(48px) saturate(2.2) brightness(0.84);
+  --glowmint-glass-panel-border: 1px solid rgba(255, 255, 255, 0.24);
+  --glowmint-glass-panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
 
-  --glowmint-glass-inset-bg: rgba(255, 255, 255, 0.03);
-  --glowmint-glass-inset-blur: 10px;
-  --glowmint-glass-inset-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --glowmint-glass-inset-bg:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.1) 100%
+    ),
+    rgba(10, 12, 18, 0.68);
+  --glowmint-glass-inset-backdrop: blur(36px) saturate(2) brightness(0.88);
+  --glowmint-glass-inset-border: 1px solid rgba(255, 255, 255, 0.16);
+  --glowmint-glass-inset-shadow: none;
 
-  --glowmint-glass-bar-bg: rgba(15, 17, 23, 0.55);
-  --glowmint-glass-bar-blur: 20px;
-  --glowmint-glass-bar-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  --glowmint-glass-bar-bg:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.12) 100%
+    ),
+    rgba(10, 12, 18, 0.8);
+  --glowmint-glass-bar-backdrop: blur(48px) saturate(2.2) brightness(0.84);
+  --glowmint-glass-bar-border: 1px solid rgba(255, 255, 255, 0.18);
+  --glowmint-glass-bar-shadow: none;
 }
 
 body {
@@ -29,40 +50,80 @@ body {
 }
 
 /* Frosted app shell */
+.mantine-AppShell-root {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
 .mantine-AppShell-navbar {
-  background: var(--glowmint-glass-bar-bg) !important;
-  backdrop-filter: blur(var(--glowmint-glass-bar-blur));
-  -webkit-backdrop-filter: blur(var(--glowmint-glass-bar-blur));
-  border-right: none !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+  background: var(--glowmint-glass-panel-bg) !important;
+  backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  border-right: var(--glowmint-glass-panel-border) !important;
+  box-shadow: var(--glowmint-glass-panel-shadow);
 }
 
 .mantine-AppShell-main {
   background: transparent;
 }
 
-.mantine-AppShell-root {
-  background: transparent;
+.mantine-Alert-root {
+  border: var(--glowmint-glass-panel-border);
+  background: var(--glowmint-glass-panel-bg);
+  backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  box-shadow: var(--glowmint-glass-panel-shadow);
 }
 
-.mantine-Alert-root {
-  border: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.mantine-NavLink-root {
+  border-radius: var(--mantine-radius-md);
+  transition: background 0.15s ease;
+}
+
+.mantine-NavLink-root:hover {
+  background: var(--glowmint-glass-inset-bg);
+  backdrop-filter: var(--glowmint-glass-inset-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-inset-backdrop);
+  box-shadow: var(--glowmint-glass-inset-shadow);
 }
 
 .mantine-NavLink-root[data-active] {
-  background: rgba(34, 211, 238, 0.1);
-  backdrop-filter: blur(8px);
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.22) 0%,
+    rgba(34, 211, 238, 0.1) 100%
+  );
+  backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  border: var(--glowmint-glass-inset-border);
+  box-shadow: var(--glowmint-glass-inset-shadow);
 }
 
 /* Glass surface highlight edge (soft, not a hard border) */
 .glowmint-glass {
-  border: none;
+  background-color: transparent;
+}
+
+.glowmint-glass--panel {
+  border: var(--glowmint-glass-panel-border);
+  backdrop-filter: var(--glowmint-glass-panel-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-panel-backdrop);
+}
+
+.glowmint-glass--inset {
+  border: var(--glowmint-glass-inset-border);
+  backdrop-filter: var(--glowmint-glass-inset-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-inset-backdrop);
+}
+
+.glowmint-glass--bar {
+  border: var(--glowmint-glass-bar-border);
+  backdrop-filter: var(--glowmint-glass-bar-backdrop);
+  -webkit-backdrop-filter: var(--glowmint-glass-bar-backdrop);
 }
 
 .glowmint-glass--bar.glowmint-glass-footer {
-  box-shadow:
-    var(--glowmint-glass-bar-shadow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-top: var(--glowmint-glass-bar-border);
+  box-shadow: var(--glowmint-glass-bar-shadow);
 }

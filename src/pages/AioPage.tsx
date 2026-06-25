@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   Badge,
@@ -19,6 +18,12 @@ import { api } from '../lib/api';
 import { usePolling } from '../hooks/usePolling';
 import type { CoolingStatus, LcdStatus } from '../lib/types';
 
+function lcdContentPath(content: LcdStatus['current_content']): string | null {
+  if (!content) return null;
+  const record = content as { static?: { path?: string }; gif?: { path?: string } };
+  return record.static?.path ?? record.gif?.path ?? null;
+}
+
 export function AioPage() {
   const [lcdStatus, setLcdStatus] = useState<LcdStatus | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -33,14 +38,29 @@ export function AioPage() {
     3000,
   );
 
+  const setPreviewFromPath = useCallback(async (path: string) => {
+    try {
+      setPreviewUrl(await api.lcdPreviewDataUrl(path));
+    } catch (err) {
+      setPreviewUrl(null);
+      setMessage(String(err));
+    }
+  }, []);
+
   const refreshLcd = useCallback(async () => {
     try {
       const status = await api.lcdStatus();
       setLcdStatus(status);
+      const path = lcdContentPath(status.current_content);
+      if (path) {
+        await setPreviewFromPath(path);
+      } else {
+        setPreviewUrl(null);
+      }
     } catch (err) {
       setMessage(String(err));
     }
-  }, []);
+  }, [setPreviewFromPath]);
 
   useEffect(() => {
     void refreshLcd();
@@ -53,7 +73,7 @@ export function AioPage() {
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
     });
     if (!selected || Array.isArray(selected)) return;
-    setPreviewUrl(convertFileSrc(selected));
+    await setPreviewFromPath(selected);
     try {
       await api.lcdSetImage(selected);
       setMessage('LCD image applied');
@@ -69,7 +89,7 @@ export function AioPage() {
       filters: [{ name: 'GIF', extensions: ['gif'] }],
     });
     if (!selected || Array.isArray(selected)) return;
-    setPreviewUrl(convertFileSrc(selected));
+    await setPreviewFromPath(selected);
     try {
       await api.lcdSetGif(selected, fps, loop);
       setMessage('LCD GIF started');
@@ -100,7 +120,7 @@ export function AioPage() {
             </Badge>
             {lcdStatus?.looping ? (
               <Badge variant="light" color="yellow">
-                GIF looping
+                Display active
               </Badge>
             ) : null}
           </Group>
@@ -140,8 +160,11 @@ export function AioPage() {
             <Button variant="light" onClick={() => void pickAndApplyGif()}>
               Apply GIF
             </Button>
-            <Button variant="light" onClick={() => void api.lcdStopGif()}>
-              Stop GIF
+            <Button
+              variant="light"
+              onClick={() => void api.lcdStopGif().then(() => refreshLcd())}
+            >
+              Stop display
             </Button>
           </Group>
 

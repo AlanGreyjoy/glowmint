@@ -30,6 +30,12 @@ pub trait RgbController: Send + Sync {
     async fn is_available(&self) -> bool;
     async fn list_devices(&self) -> Result<Vec<RgbDevice>>;
     async fn set_zone_color(&self, device_index: usize, zone_index: usize, color: RgbColor) -> Result<()>;
+    async fn resize_zone(
+        &self,
+        device_index: usize,
+        zone_index: usize,
+        led_count: usize,
+    ) -> Result<()>;
     async fn set_device_mode(&self, device_index: usize, mode: LightingMode) -> Result<()>;
     async fn save_profile(&self, name: &str) -> Result<()>;
     async fn load_profile(&self, name: &str) -> Result<()>;

@@ -109,6 +109,11 @@ pub async fn lcd_set_brightness(
 }
 
 #[tauri::command]
+pub async fn lcd_preview_data_url(path: String) -> Result<String, String> {
+    crate::drivers::corsair_lcd::lcd_file_preview_data_url(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn lcd_stop_gif(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.aio.stop_lcd_gif().await.map_err(|e| e.to_string())
 }
@@ -294,10 +299,25 @@ pub fn install_udev_rules(state: tauri::State<'_, AppState>) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn start_openrgb_server(state: tauri::State<'_, AppState>) -> Result<(), String> {
+pub async fn start_openrgb_server(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state
         .setup
         .start_openrgb_server()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn resize_rgb_zone(
+    state: tauri::State<'_, AppState>,
+    device_index: usize,
+    zone_index: usize,
+    led_count: usize,
+) -> Result<(), String> {
+    state
+        .lighting
+        .resize_zone(device_index, zone_index, led_count)
+        .await
         .map_err(|e| e.to_string())
 }
 

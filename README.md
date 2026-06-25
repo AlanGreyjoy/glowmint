@@ -35,7 +35,7 @@ Then start backends:
 
 ```bash
 sudo systemctl enable --now ckb-next-daemon
-openrgb --startminimized --server
+openrgb --server --noautoconnect
 ```
 
 ### Identify your hardware

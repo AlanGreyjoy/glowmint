@@ -34,6 +34,17 @@ impl LightingService {
         self.rgb.set_device_mode(device_index, mode).await
     }
 
+    pub async fn resize_zone(
+        &self,
+        device_index: usize,
+        zone_index: usize,
+        led_count: usize,
+    ) -> Result<()> {
+        self.rgb
+            .resize_zone(device_index, zone_index, led_count)
+            .await
+    }
+
     pub async fn save_openrgb_profile(&self, name: &str) -> Result<()> {
         self.rgb.save_profile(name).await
     }

@@ -9,6 +9,20 @@ Linux-native desktop app for Corsair hardware — an iCUE alternative for Mint a
 
 **Stack:** Tauri 2 (Rust backend) + React 19 + TypeScript + Tailwind CSS + Vite.
 
+## Shared repo — build for everyone
+
+This repo is **public and cloned on other machines**. Changes must work for contributors and users on fresh checkouts — not only the current dev environment.
+
+| Principle | Do | Don't |
+| --- | --- | --- |
+| **Portable setup** | Use `/setup` checks, `setup_probe`, and copy-paste commands that adapt to detected distro | Assume Mint, apt, or one developer's udev/systemd layout |
+| **No machine lock-in** | Resolve paths at runtime (`which`, env, config store); document generic steps in README/CONTRIBUTING | Hardcode home dirs, usernames, repo paths, or "works on my box" one-offs |
+| **Varied hardware** | Graceful empty/error states when Corsair devices or backends (OpenRGB, liquidctl, ckb-next) are missing | Require specific USB IDs or running daemons to use the app |
+| **Distro breadth** | Prefer detection + manual instructions for dnf/pacman/unknown; apt auto-install via pkexec where supported | Ship Mint-only logic without a fallback for other distros |
+| **Onboarding path** | Welcome wizard + Setup page are how new users get unblocked | Rely on `scripts/setup-mint.sh` alone — it's a convenience script, not the product |
+
+When adding features or fixing bugs, ask: *Would this work on a clean clone on Fedora, Arch, or Ubuntu with different Corsair gear and no local tweaks?* If not, add detection, docs, or UI guidance — don't leave it implicit.
+
 ## Design
 
 Glowmint’s look is **dark-mode glassmorphism**, inspired by Apple’s **Liquid Glass** (WWDC 2025): translucent layers that float above content, adapt to what’s behind them, and keep the hardware UI feeling fluid and premium — not flat or boxy.
@@ -38,6 +52,8 @@ Use **`GlassSurface`** (`src/components/ui/GlassSurface.tsx`) for cards and pane
 
 ## Hardware backends
 
+Not every install has every device or backend. UI and services should degrade cleanly (status, setup hints) rather than fail hard.
+
 | Area | Backend | Driver path |
 | --- | --- | --- |
 | Elite AIO LCD | Native Rust HID | `src-tauri/src/drivers/corsair_lcd/` |
@@ -65,8 +81,13 @@ See `CONTRIBUTING.md` for where new code goes and how to add a backend.
 
 ## Dev commands
 
+Prerequisites (Node 20+, Rust, Tauri Linux deps) are in `README.md` — verify those before assuming a local env issue.
+
 ```bash
+npm install         # first-time / after pull
 npm run tauri dev   # run app
 cargo test          # Rust tests (from src-tauri/)
 npm run lint        # eslint + prettier
 ```
+
+New contributors: use in-app **Setup** (`/setup`) for system checks; `scripts/setup-mint.sh` is optional Mint-specific automation.

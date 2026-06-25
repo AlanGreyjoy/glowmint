@@ -22,6 +22,15 @@ pub struct RgbZone {
     pub index: usize,
     pub name: String,
     pub led_count: usize,
+    pub resizable: bool,
+    pub leds_min: usize,
+    pub leds_max: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoConfigureZonesReport {
+    pub zones_configured: usize,
+    pub zone_labels: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { CheckCircle2, CircleAlert, CircleHelp, XCircle } from 'lucide-react';
 import { Alert, Badge, Button, Code, Group, Modal, SimpleGrid, Stack, Text } from '@mantine/core';
 
@@ -50,6 +51,12 @@ function autoFixBusyLabel(checkId: string): string {
     default:
       return 'Working…';
   }
+}
+
+async function yieldToPaint() {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
 }
 
 interface ProgressSheetContent {
@@ -242,61 +249,87 @@ export function SystemChecksPanel({
   const [progressSheet, setProgressSheet] = useState<ProgressSheetContent | null>(null);
   const [fixFeedback, setFixFeedback] = useState<FixFeedback | null>(null);
   const [fixModalOpen, setFixModalOpen] = useState(false);
+  const [pendingFix, setPendingFix] = useState<SetupCheck | null>(null);
+  const fixRunningRef = useRef(false);
   const fixInProgress = fixingCheckId !== null;
 
   const closeFixModal = () => {
     setFixModalOpen(false);
   };
 
-  const handleAutoFix = async (check: SetupCheck) => {
-    setFixModalOpen(false);
-    setProgressSheet(progressSheetContent(check));
-    setFixingCheckId(check.id);
-    try {
-      if (check.id === 'udev_rules') {
-        await api.installUdevRules();
-        setFixFeedback({
-          tone: 'success',
-          title: 'udev rules installed',
-          summary: 'Replug USB if needed, then confirm the check passes below.',
-        });
-      } else if (check.id === 'openrgb_server') {
-        await api.startOpenrgbServer();
-        setFixFeedback({
-          tone: 'success',
-          title: 'OpenRGB server starting',
-          summary: 'Give it a few seconds, then confirm the check passes below.',
-        });
-      } else if (check.id === 'liquidctl_binary' || check.id === 'openrgb_binary') {
-        const result = await api.installPackages();
-        setFixFeedback({
-          tone: result.success ? 'success' : 'error',
-          title: result.success ? 'Package install finished' : 'Package install failed',
-          summary: result.summary,
-          log: result.log || undefined,
-        });
-      } else if (check.id === 'ckb_next_daemon') {
-        await api.startCkbNextDaemon();
-        setFixFeedback({
-          tone: 'success',
-          title: 'ckb-next daemon started',
-          summary: 'Confirm the check passes below.',
-        });
-      }
-      await onRefresh();
-    } catch (err) {
-      setFixFeedback({
-        tone: 'error',
-        title: 'Action failed',
-        summary: String(err),
-      });
-      onMessage?.(String(err));
-    } finally {
-      setFixingCheckId(null);
-      setProgressSheet(null);
-      setFixModalOpen(true);
+  const handleAutoFix = (check: SetupCheck) => {
+    if (fixRunningRef.current) {
+      return;
     }
+
+    flushSync(() => {
+      setFixModalOpen(false);
+      setProgressSheet(progressSheetContent(check));
+      setFixingCheckId(check.id);
+      setPendingFix(check);
+    });
   };
+
+  useEffect(() => {
+    if (!pendingFix) {
+      return;
+    }
+
+    const check = pendingFix;
+    fixRunningRef.current = true;
+
+    void (async () => {
+      await yieldToPaint();
+
+      try {
+        if (check.id === 'udev_rules') {
+          await api.installUdevRules();
+          setFixFeedback({
+            tone: 'success',
+            title: 'udev rules installed',
+            summary: 'Replug USB if needed, then confirm the check passes below.',
+          });
+        } else if (check.id === 'openrgb_server') {
+          await api.startOpenrgbServer();
+          setFixFeedback({
+            tone: 'success',
+            title: 'OpenRGB server started',
+            summary:
+              'Unused RGB headers were set to off. Configure any you use on the Lighting page, then confirm the check passes below.',
+          });
+        } else if (check.id === 'liquidctl_binary' || check.id === 'openrgb_binary') {
+          const result = await api.installPackages();
+          setFixFeedback({
+            tone: result.success ? 'success' : 'error',
+            title: result.success ? 'Package install finished' : 'Package install failed',
+            summary: result.summary,
+            log: result.log || undefined,
+          });
+        } else if (check.id === 'ckb_next_daemon') {
+          await api.startCkbNextDaemon();
+          setFixFeedback({
+            tone: 'success',
+            title: 'ckb-next daemon started',
+            summary: 'Confirm the check passes below.',
+          });
+        }
+        await onRefresh();
+      } catch (err) {
+        setFixFeedback({
+          tone: 'error',
+          title: 'Action failed',
+          summary: String(err),
+        });
+        onMessage?.(String(err));
+      } finally {
+        fixRunningRef.current = false;
+        setPendingFix(null);
+        setFixingCheckId(null);
+        setProgressSheet(null);
+        setFixModalOpen(true);
+      }
+    })();
+  }, [pendingFix, onRefresh, onMessage]);
 
   const passedCount = report.checks.filter((c) => c.status === 'pass').length;
 

@@ -2,6 +2,7 @@ export { EmptyState } from './EmptyState';
 export { GlassSurface, glassClassName, glassStyle } from './GlassSurface';
 export type { GlassVariant } from './GlassSurface';
 export { ListItemCard } from './ListItemCard';
+export { PageBackground } from './PageBackground';
 export { PageHeader } from './PageHeader';
 export { ProgressSheet } from './ProgressSheet';
 export { SectionCard } from './SectionCard';

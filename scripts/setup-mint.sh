@@ -54,5 +54,5 @@ sudo -u "${REAL_USER}" systemctl --user daemon-reload || true
 
 echo "==> Done"
 echo "Enable autostart (optional): systemctl --user enable glowmint.service"
-echo "Start OpenRGB SDK server: openrgb --startminimized --server"
+echo "Start OpenRGB SDK server: openrgb --server --noautoconnect"
 echo "Enable ckb-next: sudo systemctl enable --now ckb-next-daemon"

@@ -24,6 +24,7 @@ export const api = {
   lcdSetImage: (path: string) => invoke<void>('lcd_set_image', { path }),
   lcdSetGif: (path: string, fps: number, loop: boolean) =>
     invoke<void>('lcd_set_gif', { path, fps, loop }),
+  lcdPreviewDataUrl: (path: string) => invoke<string>('lcd_preview_data_url', { path }),
   lcdSetBrightness: (brightness: number) => invoke<void>('lcd_set_brightness', { brightness }),
   lcdStopGif: () => invoke<void>('lcd_stop_gif'),
 
@@ -38,6 +39,8 @@ export const api = {
   listRgbDevices: () => invoke<RgbDevice[]>('list_rgb_devices'),
   setZoneColor: (deviceIndex: number, zoneIndex: number, color: RgbColor) =>
     invoke<void>('set_zone_color', { deviceIndex, zoneIndex, color }),
+  resizeRgbZone: (deviceIndex: number, zoneIndex: number, ledCount: number) =>
+    invoke<void>('resize_rgb_zone', { deviceIndex, zoneIndex, ledCount }),
   setDeviceMode: (deviceIndex: number, mode: LightingMode) =>
     invoke<void>('set_device_mode', { deviceIndex, mode }),
 

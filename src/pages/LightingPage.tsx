@@ -1,10 +1,22 @@
-import { useEffect, useState } from 'react';
-import { Button, ColorInput, Group, Select, Stack, Text } from '@mantine/core';
+import { useEffect, useMemo, useState } from 'react';
+import { Button, ColorInput, Group, NumberInput, Select, Stack, Text } from '@mantine/core';
 
 import { EmptyState, PageHeader, SectionCard } from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
-import type { LightingMode, RgbDevice } from '../lib/types';
+import type { LightingMode, RgbDevice, RgbZone } from '../lib/types';
+
+function zoneKey(deviceIndex: number, zoneIndex: number) {
+  return `${deviceIndex}-${zoneIndex}`;
+}
+
+function zonesNeedingSetup(devices: RgbDevice[]): Array<{ device: RgbDevice; zone: RgbZone }> {
+  return devices.flatMap((device) =>
+    device.zones
+      .filter((zone) => zone.resizable && zone.led_count === 0)
+      .map((zone) => ({ device, zone })),
+  );
+}
 
 export function LightingPage() {
   const [devices, setDevices] = useState<RgbDevice[]>([]);
@@ -13,6 +25,8 @@ export function LightingPage() {
   const [color, setColor] = useState('#00bfff');
   const [mode, setMode] = useState<LightingMode>('static');
   const [message, setMessage] = useState<string | null>(null);
+  const [draftLedCounts, setDraftLedCounts] = useState<Record<string, number>>({});
+  const [savingZoneKey, setSavingZoneKey] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
@@ -31,6 +45,21 @@ export function LightingPage() {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const setupZones = useMemo(() => zonesNeedingSetup(devices), [devices]);
+
+  useEffect(() => {
+    setDraftLedCounts((prev) => {
+      const next = { ...prev };
+      for (const { device, zone } of setupZones) {
+        const key = zoneKey(device.index, zone.index);
+        if (next[key] === undefined) {
+          next[key] = zone.led_count;
+        }
+      }
+      return next;
+    });
+  }, [setupZones]);
 
   const active = devices.find((d) => String(d.index) === selectedDevice);
 
@@ -54,6 +83,22 @@ export function LightingPage() {
     }
   };
 
+  const saveHeaderSetup = async (deviceIndex: number, zone: RgbZone) => {
+    const key = zoneKey(deviceIndex, zone.index);
+    const ledCount = draftLedCounts[key] ?? zone.led_count;
+
+    setSavingZoneKey(key);
+    try {
+      await api.resizeRgbZone(deviceIndex, zone.index, ledCount);
+      setMessage(`Saved ${zone.name} (${ledCount} LEDs)`);
+      await refresh();
+    } catch (err) {
+      setMessage(String(err));
+    } finally {
+      setSavingZoneKey(null);
+    }
+  };
+
   return (
     <Stack gap="lg">
       <PageHeader title="Lighting" description="RGB control via OpenRGB" />
@@ -62,6 +107,52 @@ export function LightingPage() {
         <Text size="sm" c="cyan.2">
           {message}
         </Text>
+      ) : null}
+
+      {setupZones.length > 0 ? (
+        <SectionCard title="RGB headers to set up">
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              These are physical RGB connectors on your PC. Enter how many LEDs are on each one you
+              use — leave at 0 if nothing is plugged in.
+            </Text>
+            {setupZones.map(({ device, zone }) => {
+              const key = zoneKey(device.index, zone.index);
+              return (
+                <Group key={key} align="flex-end" wrap="nowrap">
+                  <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="sm" fw={500}>
+                      {device.name}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {zone.name}
+                    </Text>
+                  </Stack>
+                  <NumberInput
+                    label="LEDs"
+                    value={draftLedCounts[key] ?? zone.led_count}
+                    min={zone.leds_min}
+                    max={zone.leds_max}
+                    step={1}
+                    w={120}
+                    onChange={(value) =>
+                      setDraftLedCounts((prev) => ({
+                        ...prev,
+                        [key]: typeof value === 'number' ? value : zone.led_count,
+                      }))
+                    }
+                  />
+                  <Button
+                    loading={savingZoneKey === key}
+                    onClick={() => void saveHeaderSetup(device.index, zone)}
+                  >
+                    Save
+                  </Button>
+                </Group>
+              );
+            })}
+          </Stack>
+        </SectionCard>
       ) : null}
 
       <SectionCard title="RGB Devices">

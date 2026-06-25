@@ -26,7 +26,7 @@ pub const OPENRGB_DEB_COMMIT: &str = "0fca93e";
 pub const INSTALL_PACKAGES_CMD: &str =
     "sudo apt update && sudo apt install -y liquidctl ckb-next\n# OpenRGB: use Install in System checks (downloads official .deb)";
 pub const CKB_NEXT_SERVICE_CMD: &str = "sudo systemctl enable --now ckb-next-daemon";
-pub const OPENRGB_SERVER_CMD: &str = "openrgb --startminimized --server";
+pub const OPENRGB_SERVER_CMD: &str = "openrgb --server --noautoconnect";
 
 const INSTALL_PACKAGES_SCRIPT_TEMPLATE: &str = r#"
 export DEBIAN_FRONTEND=noninteractive
@@ -34,29 +34,45 @@ set -e
 apt-get update
 apt-get install -y liquidctl ckb-next
 set +e
-if ! command -v openrgb >/dev/null 2>&1; then
+
+bin_ready() {
+  command -v "$1" >/dev/null 2>&1 && "$1" --version >/dev/null 2>&1
+}
+
+pkg_configured() {
+  dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q '^install ok installed$'
+}
+
+openrgb_ready() {
+  bin_ready openrgb && pkg_configured openrgb
+}
+
+if ! openrgb_ready; then
   if apt-cache show openrgb >/dev/null 2>&1; then
-    apt-get install -y openrgb || true
+    apt-get install -y openrgb
   fi
 fi
-if ! command -v openrgb >/dev/null 2>&1; then
+
+if ! openrgb_ready; then
   echo "Installing OpenRGB from official release .deb..."
-  apt-get install -y curl ca-certificates
+  apt-get install -y curl ca-certificates \
+    libhidapi-hidraw0 libqt5core5a libqt5gui5 libqt5widgets5 libqt5dbus5 libusb-1.0-0
+  apt-get install -y libmbedtls14t64 libmbedx509-1t64 libmbedcrypto7t64 \
+    || apt-get install -y libmbedtls14 libmbedx509-1 libmbedcrypto7
   DEB="/tmp/glowmint-openrgb.deb"
   curl -fsSL -o "$DEB" "__OPENRGB_DEB_URL__"
-  dpkg -i "$DEB" || apt-get install -f -y
+  dpkg -i "$DEB"
+  apt-get install -f -y
   rm -f "$DEB"
 fi
+
 echo ""
 echo "=== Glowmint install summary ==="
-for bin in liquidctl ckb-next openrgb; do
-  if command -v "$bin" >/dev/null 2>&1; then
-    echo "$bin: installed"
-  else
-    echo "$bin: not installed"
-  fi
-done
-command -v liquidctl >/dev/null 2>&1 && command -v ckb-next >/dev/null 2>&1 && command -v openrgb >/dev/null 2>&1
+if bin_ready liquidctl; then echo "liquidctl: installed"; else echo "liquidctl: not installed"; fi
+if bin_ready ckb-next; then echo "ckb-next: installed"; else echo "ckb-next: not installed"; fi
+if openrgb_ready; then echo "openrgb: installed"; else echo "openrgb: not installed"; fi
+
+bin_ready liquidctl && bin_ready ckb-next && openrgb_ready
 "#;
 
 pub struct SetupService {
@@ -326,21 +342,30 @@ impl SetupService {
         }
     }
 
-    pub fn start_openrgb_server(&self) -> Result<()> {
+    pub async fn start_openrgb_server(&self) -> Result<()> {
         if !command_exists("openrgb") {
             return Err(GlowmintError::OpenRgbUnavailable(
                 "openrgb binary not found".into(),
             ));
         }
 
-        Command::new("openrgb")
-            .args(["--startminimized", "--server"])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
+        if !openrgb::is_available().await {
+            Command::new("openrgb")
+                .args(["--server", "--noautoconnect"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
 
+            if !openrgb::wait_for_server(15_000).await {
+                return Err(GlowmintError::OpenRgbUnavailable(
+                    "OpenRGB server did not become reachable within 15 seconds".into(),
+                ));
+            }
+        }
+
+        openrgb::auto_configure_uninitialized_zones().await?;
         Ok(())
     }
 
@@ -364,10 +389,11 @@ impl SetupService {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         let log = format!("{stdout}\n{stderr}").trim().to_string();
-        let summary = parse_install_summary(&log, output.status.success());
+        let success = install_succeeded(&log, output.status.success());
+        let summary = parse_install_summary(&log, success);
 
         Ok(InstallPackagesResult {
-            success: output.status.success(),
+            success,
             summary,
             log,
         })
@@ -488,9 +514,38 @@ fn build_install_packages_script(openrgb_deb_url: &str) -> String {
     INSTALL_PACKAGES_SCRIPT_TEMPLATE.replace("__OPENRGB_DEB_URL__", openrgb_deb_url)
 }
 
+fn extract_install_summary_block(log: &str) -> Option<String> {
+    let start = log.find("=== Glowmint install summary ===")?;
+    let lines: Vec<&str> = log[start..]
+        .lines()
+        .take_while(|line| {
+            line.starts_with("===")
+                || line.starts_with("liquidctl:")
+                || line.starts_with("ckb-next:")
+                || line.starts_with("openrgb:")
+                || line.trim().is_empty()
+        })
+        .collect();
+    Some(lines.join("\n"))
+}
+
+fn install_succeeded(log: &str, exit_ok: bool) -> bool {
+    if !exit_ok {
+        return false;
+    }
+    if log.contains("dependency problems prevent configuration")
+        || log.contains("Errors were encountered while processing")
+    {
+        return false;
+    }
+    let Some(summary) = extract_install_summary_block(log) else {
+        return false;
+    };
+    !summary.contains("not installed")
+}
+
 fn parse_install_summary(log: &str, success: bool) -> String {
-    if let Some(start) = log.find("=== Glowmint install summary ===") {
-        let summary = log[start..].trim().to_string();
+    if let Some(summary) = extract_install_summary_block(log) {
         if success {
             format!("{summary}\n\nChecks updated — review pass/fail below.")
         } else {
@@ -654,6 +709,26 @@ mod tests {
     fn parse_install_summary_handles_dismissed_prompt() {
         let summary = parse_install_summary("Error executing command: Request dismissed", false);
         assert!(summary.contains("dismissed"));
+    }
+
+    #[test]
+    fn install_succeeded_false_when_summary_lists_not_installed() {
+        let log = "=== Glowmint install summary ===\nliquidctl: installed\nopenrgb: not installed";
+        assert!(!install_succeeded(log, true));
+    }
+
+    #[test]
+    fn install_succeeded_false_on_dpkg_dependency_error() {
+        let log = "dependency problems prevent configuration of openrgb:\n=== Glowmint install summary ===\nopenrgb: installed";
+        assert!(!install_succeeded(log, true));
+    }
+
+    #[test]
+    fn extract_install_summary_ignores_trailing_apt_errors() {
+        let log = "=== Glowmint install summary ===\nopenrgb: installed\ndpkg: dependency problems prevent configuration";
+        let summary = extract_install_summary_block(log).unwrap();
+        assert!(summary.contains("openrgb: installed"));
+        assert!(!summary.contains("dpkg:"));
     }
 
     #[test]

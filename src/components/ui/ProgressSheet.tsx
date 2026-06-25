@@ -19,7 +19,7 @@ export function ProgressSheet({ opened, title, message }: ProgressSheetProps) {
       pos="fixed"
       inset={0}
       style={{
-        zIndex: 1000,
+        zIndex: 10000,
         background: 'rgba(8, 10, 14, 0.72)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',

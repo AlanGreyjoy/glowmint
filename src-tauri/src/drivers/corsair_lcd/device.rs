@@ -20,6 +20,8 @@ use crate::drivers::corsair_lcd::protocol::{make_commands, OPCODE_IMAGE, MAX_PAC
 pub const CORSAIR_VID: u16 = 0x1b1c;
 pub const LCD_PID_ELITE: u16 = 0x0c39;
 pub const LCD_PID_ALT: u16 = 0x0c33;
+/// Static images must be re-sent periodically; firmware reverts to stats when streaming stops.
+const STATIC_REFRESH_FPS: u32 = 2;
 
 pub struct CorsairLcdDriver {
     vendor_id: u16,
@@ -114,6 +116,27 @@ impl CorsairLcdDriver {
         Ok(jpegs)
     }
 
+    fn stop_display_loop(&self) {
+        self.gif_stop.store(true, Ordering::SeqCst);
+        self.looping.store(false, Ordering::SeqCst);
+    }
+
+    fn spawn_static_loop(&self, jpeg: Vec<u8>) {
+        self.gif_stop.store(false, Ordering::SeqCst);
+        self.looping.store(true, Ordering::SeqCst);
+        let stop = Arc::clone(&self.gif_stop);
+        let delay = Duration::from_millis((1000 / STATIC_REFRESH_FPS) as u64);
+
+        thread::spawn(move || {
+            while !stop.load(Ordering::SeqCst) {
+                if let Err(e) = Self::send_jpeg(&jpeg) {
+                    eprintln!("LCD static frame error: {e}");
+                }
+                thread::sleep(delay);
+            }
+        });
+    }
+
     fn spawn_gif_loop(&self, frames: Vec<Vec<u8>>, fps: u32, r#loop: bool) {
         self.gif_stop.store(false, Ordering::SeqCst);
         self.looping.store(r#loop, Ordering::SeqCst);
@@ -137,6 +160,41 @@ impl CorsairLcdDriver {
             }
         });
     }
+}
+
+/// Data URL for the LCD editor preview (WebView cannot load arbitrary paths without asset scope).
+pub fn lcd_file_preview_data_url(path: &str) -> Result<String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let path = Path::new(path);
+    if !path.exists() {
+        return Err(GlowmintError::InvalidInput(format!(
+            "file not found: {}",
+            path.display()
+        )));
+    }
+
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+        .unwrap_or_default();
+
+    let mime = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        _ => {
+            return Err(GlowmintError::InvalidInput(
+                "unsupported preview format (use png, jpg, webp, or gif)".to_string(),
+            ));
+        }
+    };
+
+    let bytes = std::fs::read(path).map_err(|e| GlowmintError::LcdError(format!("read failed: {e}")))?;
+    let encoded = STANDARD.encode(&bytes);
+    Ok(format!("data:{};base64,{}", mime, encoded))
 }
 
 impl Default for CorsairLcdDriver {
@@ -164,19 +222,23 @@ impl LcdController for CorsairLcdDriver {
     }
 
     async fn set_image(&self, path: &str) -> Result<()> {
-        self.gif_stop.store(true, Ordering::SeqCst);
+        self.stop_display_loop();
+        thread::sleep(Duration::from_millis(50));
         let img = Self::load_image(path)?;
         let jpeg = Self::encode_jpeg(&img)?;
         Self::send_jpeg(&jpeg)?;
-        let mut state = self.state.lock().map_err(|e| GlowmintError::LcdError(e.to_string()))?;
-        state.current_content = Some(LcdContent::Static {
-            path: path.to_string(),
-        });
+        {
+            let mut state = self.state.lock().map_err(|e| GlowmintError::LcdError(e.to_string()))?;
+            state.current_content = Some(LcdContent::Static {
+                path: path.to_string(),
+            });
+        }
+        self.spawn_static_loop(jpeg);
         Ok(())
     }
 
     async fn set_gif(&self, path: &str, fps: u32, r#loop: bool) -> Result<()> {
-        self.gif_stop.store(true, Ordering::SeqCst);
+        self.stop_display_loop();
         thread::sleep(Duration::from_millis(50));
         let frames = Self::decode_gif_frames(path)?;
         {
@@ -197,8 +259,9 @@ impl LcdController for CorsairLcdDriver {
     }
 
     async fn stop_gif(&self) -> Result<()> {
-        self.gif_stop.store(true, Ordering::SeqCst);
-        self.looping.store(false, Ordering::SeqCst);
+        self.stop_display_loop();
+        let mut state = self.state.lock().map_err(|e| GlowmintError::LcdError(e.to_string()))?;
+        state.current_content = None;
         Ok(())
     }
 }
