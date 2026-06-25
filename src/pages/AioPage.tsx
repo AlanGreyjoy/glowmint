@@ -11,6 +11,7 @@ import {
   PageHeader,
   SectionCard,
   Slider,
+  toast,
 } from '../components/ui';
 import { api } from '../lib/api';
 import { usePolling } from '../hooks/usePolling';
@@ -27,7 +28,6 @@ export function AioPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fps, setFps] = useState(15);
   const [loop, setLoop] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
   const [fanDuty, setFanDuty] = useState(50);
   const [pumpDuty, setPumpDuty] = useState(84);
 
@@ -47,7 +47,7 @@ export function AioPage() {
     } catch (err) {
       setPreviewUrl(null);
       previewPathRef.current = null;
-      setMessage(String(err));
+      toast.error(String(err));
     }
   }, []);
 
@@ -65,7 +65,7 @@ export function AioPage() {
         previewPathRef.current = null;
       }
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   }, [setPreviewFromPath]);
 
@@ -83,10 +83,10 @@ export function AioPage() {
     await setPreviewFromPath(selected);
     try {
       await api.lcdSetImage(selected);
-      setMessage('LCD image applied');
+      toast.success('LCD image applied');
       await refreshLcd();
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -99,18 +99,16 @@ export function AioPage() {
     await setPreviewFromPath(selected);
     try {
       await api.lcdSetGif(selected, fps, loop);
-      setMessage('LCD GIF started');
+      toast.success('LCD GIF started');
       await refreshLcd();
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="AIO / LCD" description="Elite LCD screen and Commander Core cooling" />
-
-      {message ? <p className="text-sm text-emerald-200">{message}</p> : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard title="LCD Editor">

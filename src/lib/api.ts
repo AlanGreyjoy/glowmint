@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import type {
   BackendHealth,
+  CanvasLayout,
   CoolingStatus,
   Device,
   FanCurve,
@@ -56,6 +57,9 @@ export const api = {
   saveProfile: (profile: Profile) => invoke<void>('save_profile', { profile }),
   loadProfile: (name: string) => invoke<Profile>('load_profile', { name }),
   deleteProfile: (name: string) => invoke<void>('delete_profile', { name }),
+
+  loadCanvasLayout: () => invoke<CanvasLayout>('load_canvas_layout'),
+  saveCanvasLayout: (layout: CanvasLayout) => invoke<void>('save_canvas_layout', { layout }),
 
   getSetupStatus: () => invoke<SetupStatus>('get_setup_status'),
   runSetupChecks: () => invoke<SetupReport>('run_setup_checks'),

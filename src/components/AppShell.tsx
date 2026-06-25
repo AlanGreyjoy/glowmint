@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Droplets, Keyboard, LayoutDashboard, Lightbulb, Settings } from 'lucide-react';
+import { Droplets, Keyboard, LayoutDashboard, Lightbulb, Palette, Settings } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -9,6 +9,7 @@ import { PageBackground } from './ui';
 const links = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/aio', label: 'AIO / LCD', icon: Droplets },
+  { to: '/canvas', label: 'Canvas', icon: Palette },
   { to: '/lighting', label: 'Lighting', icon: Lightbulb },
   { to: '/peripherals', label: 'Peripherals', icon: Keyboard },
   { to: '/setup', label: 'Setup', icon: Settings },
@@ -24,8 +25,12 @@ export function AppShellLayout({ children }: { children: ReactNode }) {
       <div className="relative z-1 flex min-h-screen bg-transparent text-white">
         <aside className="glowmint-glass glowmint-glass--panel w-48 shrink-0 rounded-none px-4 py-5 shadow-[28px_0_80px_rgba(4,14,24,0.12)]">
           <div className="mb-8">
-            <h2 className="text-xl font-semibold tracking-tight text-white drop-shadow-sm">Glowmint</h2>
-            <p className="mt-1 text-[0.72rem] leading-tight text-white/62">Linux iCUE alternative</p>
+            <h2 className="text-xl font-semibold tracking-tight text-white drop-shadow-sm">
+              Glowmint
+            </h2>
+            <p className="mt-1 text-[0.72rem] leading-tight text-white/62">
+              Linux iCUE alternative
+            </p>
           </div>
           <nav className="space-y-1">
             {links.map(({ to, label, icon: Icon }) => (

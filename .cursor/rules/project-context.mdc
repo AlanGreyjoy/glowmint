@@ -39,6 +39,29 @@ Use **`GlassSurface`** (`src/components/ui/GlassSurface.tsx`) for cards and pane
 
 **Component library.** Follow `.cursor/rules/component-library.mdc`: shared UI in `src/components/ui/` (shadcn/Radix primitives + Glowmint wrappers). Pages/features import from `components/ui`.
 
+## User feedback (toasts)
+
+Transient feedback — "saved", "applied", and operation errors — goes through the **toast alert server** (`src/components/ui/toast.tsx`), shown bottom-right. Import `toast` from `@/components/ui` and call it from hooks, pages, or features. `<Toaster />` is already mounted once at the app root (`src/App.tsx`) — don't add another.
+
+| Do | Don't |
+| --- | --- |
+| `toast.success('Canvas layout saved')` after an action succeeds | Track a `message` string in component state |
+| `toast.error(String(err))` in `catch` blocks | Render `{message ? <p>…</p> : null}` inline |
+| Match the variant to intent: `success`, `error`, `info`, `warning` | Show errors in success-colored text |
+
+```tsx
+// ❌ BAD — ad-hoc message state + inline paragraph (the pattern we removed)
+const [message, setMessage] = useState<string | null>(null);
+setMessage('Canvas layout saved');
+{message ? <p className="text-sm text-emerald-200">{message}</p> : null}
+
+// ✅ GOOD — publish to the toast server
+import { toast } from '@/components/ui';
+toast.success('Canvas layout saved');
+```
+
+Keep blocking or detailed output (install logs, multi-step progress) in a dialog or `ProgressSheet`; toasts are for quick, dismissible confirmations.
+
 ## App areas
 
 | Route | Purpose |

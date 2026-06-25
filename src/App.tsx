@@ -1,9 +1,10 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import { AppShellLayout } from './components/AppShell';
-import { Spinner } from './components/ui';
+import { Spinner, Toaster } from './components/ui';
 import { useSetupGate } from './hooks/useSetupGate';
 import { AioPage } from './pages/AioPage';
+import { CanvasPage } from './pages/CanvasPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LightingPage } from './pages/LightingPage';
 import { PeripheralsPage } from './pages/PeripheralsPage';
@@ -42,6 +43,7 @@ function MainApp() {
             }
           />
           <Route path="/aio" element={<AioPage />} />
+          <Route path="/canvas" element={<CanvasPage />} />
           <Route path="/lighting" element={<LightingPage />} />
           <Route path="/peripherals" element={<PeripheralsPage />} />
           <Route
@@ -55,5 +57,10 @@ function MainApp() {
 }
 
 export default function App() {
-  return <MainApp />;
+  return (
+    <>
+      <MainApp />
+      <Toaster />
+    </>
+  );
 }

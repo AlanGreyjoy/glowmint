@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Button, EmptyState, GlassSurface, PageHeader } from '../components/ui';
+import { Button, EmptyState, GlassSurface, PageHeader, toast } from '../components/ui';
 import { SetupChecklist } from '../features/setup/SetupChecklist';
 import { api } from '../lib/api';
 import type { SetupReport } from '../lib/types';
@@ -11,7 +11,6 @@ interface WelcomePageProps {
 
 export function WelcomePage({ onComplete }: WelcomePageProps) {
   const [report, setReport] = useState<SetupReport | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -20,7 +19,7 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
       const next = await api.runSetupChecks();
       setReport(next);
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     } finally {
       setRefreshing(false);
     }
@@ -35,7 +34,7 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
       await api.completeOnboarding(false);
       onComplete(false);
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -44,7 +43,7 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
       await api.completeOnboarding(true);
       onComplete(true);
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -62,9 +61,7 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
           {report ? (
             <SetupChecklist
               report={report}
-              message={message}
               onRefresh={refresh}
-              onMessage={setMessage}
               refreshing={refreshing}
               layout="grid"
               showRefreshButton={false}

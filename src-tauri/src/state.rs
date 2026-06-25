@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::domain::models::canvas::CanvasLayout;
 use crate::domain::models::device::{BackendHealth, Device};
 use crate::domain::models::fan_curve::{CoolingStatus, FanCurve, PumpPreset};
 use crate::domain::models::lcd::LcdStatus;
@@ -7,7 +8,8 @@ use crate::domain::models::profile::Profile;
 use crate::domain::models::rgb::{LightingMode, RgbColor, RgbDevice};
 use crate::domain::models::setup::{SetupReport, SetupStatus};
 use crate::services::{
-    AioService, DeviceService, LightingService, PeripheralService, ProfileService, SetupService,
+    AioService, CanvasService, DeviceService, LightingService, PeripheralService, ProfileService,
+    SetupService,
 };
 
 pub struct AppState {
@@ -17,6 +19,7 @@ pub struct AppState {
     pub peripherals: PeripheralService,
     pub profiles: ProfileService,
     pub setup: SetupService,
+    pub canvas: CanvasService,
 }
 
 impl AppState {
@@ -27,6 +30,7 @@ impl AppState {
         peripherals: PeripheralService,
         profiles: ProfileService,
         setup: SetupService,
+        canvas: CanvasService,
     ) -> Self {
         Self {
             devices,
@@ -35,6 +39,7 @@ impl AppState {
             peripherals,
             profiles,
             setup,
+            canvas,
         }
     }
 }
@@ -44,7 +49,7 @@ pub fn build_app_state() -> Result<AppState, crate::domain::error::GlowmintError
         CoolingController, LcdController, PeripheralController, RgbController,
     };
     use crate::drivers::{CkbNextDriver, CorsairLcdDriver, LiquidctlDriver, OpenRgbDriver};
-    use crate::stores::{ConfigStore, ProfileStore};
+    use crate::stores::{CanvasStore, ConfigStore, ProfileStore};
 
     let lcd: Arc<dyn LcdController> = Arc::new(CorsairLcdDriver::new());
     let cooling: Arc<dyn CoolingController> = Arc::new(LiquidctlDriver::new());
@@ -61,6 +66,7 @@ pub fn build_app_state() -> Result<AppState, crate::domain::error::GlowmintError
         PeripheralService::new(Arc::clone(&peripherals) as Arc<dyn PeripheralController>),
         ProfileService::new(ProfileStore::new()?)?,
         SetupService::new(ConfigStore::new()?)?,
+        CanvasService::new(CanvasStore::new()?)?,
     ))
 }
 
@@ -293,6 +299,19 @@ pub fn load_profile(state: tauri::State<'_, AppState>, name: String) -> Result<P
 #[tauri::command]
 pub fn delete_profile(state: tauri::State<'_, AppState>, name: String) -> Result<(), String> {
     state.profiles.delete(&name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_canvas_layout(state: tauri::State<'_, AppState>) -> Result<CanvasLayout, String> {
+    state.canvas.load_layout().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_canvas_layout(
+    state: tauri::State<'_, AppState>,
+    layout: CanvasLayout,
+) -> Result<(), String> {
+    state.canvas.save_layout(layout).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

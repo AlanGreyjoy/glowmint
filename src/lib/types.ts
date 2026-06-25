@@ -74,6 +74,7 @@ export interface RgbZone {
   resizable: boolean;
   leds_min: number;
   leds_max: number;
+  color?: RgbColor;
 }
 
 export interface RgbDevice {
@@ -83,6 +84,35 @@ export interface RgbDevice {
 }
 
 export type LightingMode = 'static' | 'breathing' | 'rainbow';
+
+export type CanvasDeviceSource = 'open_rgb' | 'peripheral';
+
+export type CanvasDeviceType =
+  | 'fan'
+  | 'ram'
+  | 'aio'
+  | 'gpu'
+  | 'keyboard'
+  | 'mouse'
+  | 'controller'
+  | 'strip'
+  | 'unknown';
+
+export interface CanvasDeviceLayout {
+  device_key: string;
+  source: CanvasDeviceSource;
+  display_name: string;
+  device_type: CanvasDeviceType;
+  x: number;
+  y: number;
+  color: RgbColor;
+  lighting_mode?: LightingMode;
+  zone_index?: number;
+}
+
+export interface CanvasLayout {
+  devices: CanvasDeviceLayout[];
+}
 
 export interface Profile {
   name: string;

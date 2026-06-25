@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Button, EmptyState, Input, ListItemCard, PageHeader, SectionCard } from '../components/ui';
+import {
+  Button,
+  EmptyState,
+  Input,
+  ListItemCard,
+  PageHeader,
+  SectionCard,
+  toast,
+} from '../components/ui';
 import { SetupChecklist } from '../features/setup/SetupChecklist';
 import { api } from '../lib/api';
 import type { Profile, SetupReport } from '../lib/types';
@@ -13,7 +21,6 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
   const [report, setReport] = useState<SetupReport | null>(null);
   const [profiles, setProfiles] = useState<string[]>([]);
   const [profileName, setProfileName] = useState('default');
-  const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const refreshChecks = useCallback(async () => {
@@ -21,7 +28,7 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
     try {
       setReport(await api.runSetupChecks());
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     } finally {
       setRefreshing(false);
     }
@@ -31,7 +38,7 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
     try {
       setProfiles(await api.listProfiles());
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -48,10 +55,10 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
     };
     try {
       await api.saveProfile(profile);
-      setMessage(`Saved profile "${profileName}"`);
+      toast.success(`Saved profile "${profileName}"`);
       await refreshProfiles();
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -70,13 +77,7 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
       />
 
       {report ? (
-        <SetupChecklist
-          report={report}
-          message={message}
-          onRefresh={refreshChecks}
-          onMessage={setMessage}
-          refreshing={refreshing}
-        />
+        <SetupChecklist report={report} onRefresh={refreshChecks} refreshing={refreshing} />
       ) : (
         <EmptyState message="" loading loadingMessage="Loading setup checks…" />
       )}
@@ -105,8 +106,8 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
                     onClick={() =>
                       void api
                         .loadProfile(name)
-                        .then(() => setMessage(`Loaded profile ${name}`))
-                        .catch((err) => setMessage(String(err)))
+                        .then(() => toast.success(`Loaded profile ${name}`))
+                        .catch((err) => toast.error(String(err)))
                     }
                   >
                     Load

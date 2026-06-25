@@ -25,6 +25,15 @@ export { PageHeader } from './PageHeader';
 export { ProgressSheet } from './ProgressSheet';
 export { SectionCard } from './SectionCard';
 export {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from './sheet';
+export {
   Select,
   SelectContent,
   SelectGroup,
@@ -36,3 +45,5 @@ export { Slider } from './slider';
 export { Spinner } from './Spinner';
 export { StatusBadge } from './StatusBadge';
 export { SubsystemCard } from './SubsystemCard';
+export { Toaster, toast } from './toast';
+export type { ToastOptions, ToastVariant } from './toast';

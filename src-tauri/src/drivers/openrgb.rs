@@ -49,9 +49,21 @@ impl OpenRgbDriver {
         Color::new(color.r, color.g, color.b)
     }
 
+    fn from_openrgb_color(color: Color) -> RgbColor {
+        RgbColor {
+            r: color.r,
+            g: color.g,
+            b: color.b,
+        }
+    }
+
     fn map_zone(zone: openrgb2::Zone<'_>) -> RgbZone {
         let leds_min = zone.leds_min();
         let leds_max = zone.leds_max();
+        let color = zone
+            .led_iter()
+            .next()
+            .map(|led| Self::from_openrgb_color(led.color()));
         RgbZone {
             index: zone.zone_id(),
             name: zone.name().to_string(),
@@ -59,6 +71,7 @@ impl OpenRgbDriver {
             resizable: zone_is_resizable(leds_min, leds_max),
             leds_min,
             leds_max,
+            color,
         }
     }
 
@@ -75,18 +88,28 @@ impl OpenRgbDriver {
             .await
             .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
 
-        let devices = group
-            .controllers()
-            .iter()
-            .map(|controller| {
-                let zones = controller.get_all_zones().map(Self::map_zone).collect();
-                RgbDevice {
-                    index: controller.id(),
-                    name: controller.name().to_string(),
-                    zones,
-                }
-            })
-            .collect();
+        let mut devices = Vec::new();
+
+        for controller_ref in group.controllers() {
+            let device_index = controller_ref.id();
+            let mut controller = client
+                .get_controller(device_index)
+                .await
+                .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
+
+            controller
+                .sync_controller_data()
+                .await
+                .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
+
+            let zones = controller.get_all_zones().map(Self::map_zone).collect();
+
+            devices.push(RgbDevice {
+                index: device_index,
+                name: controller.name().to_string(),
+                zones,
+            });
+        }
 
         Ok(devices)
     }

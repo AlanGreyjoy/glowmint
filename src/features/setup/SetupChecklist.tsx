@@ -17,6 +17,7 @@ import {
   ProgressSheet,
   SectionCard,
   StatusBadge,
+  toast,
 } from '../../components/ui';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -256,18 +257,14 @@ export function DetectedHardwarePanel({ report }: DetectedHardwarePanelProps) {
 
 interface SystemChecksPanelProps {
   report: SetupReport;
-  message?: string | null;
   onRefresh: () => void | Promise<void>;
-  onMessage?: (msg: string) => void;
   refreshing?: boolean;
   showRefreshButton?: boolean;
 }
 
 export function SystemChecksPanel({
   report,
-  message,
   onRefresh,
-  onMessage,
   refreshing,
   showRefreshButton = true,
 }: SystemChecksPanelProps) {
@@ -346,7 +343,6 @@ export function SystemChecksPanel({
           title: 'Action failed',
           summary: String(err),
         });
-        onMessage?.(String(err));
       } finally {
         fixRunningRef.current = false;
         setPendingFix(null);
@@ -355,7 +351,7 @@ export function SystemChecksPanel({
         setFixModalOpen(true);
       }
     })();
-  }, [pendingFix, onRefresh, onMessage]);
+  }, [pendingFix, onRefresh]);
 
   const passedCount = report.checks.filter((c) => c.status === 'pass').length;
 
@@ -376,8 +372,6 @@ export function SystemChecksPanel({
         </Badge>
       }
     >
-      {message ? <p className="mb-4 text-sm text-emerald-200">{message}</p> : null}
-
       <ProgressSheet
         opened={fixInProgress && progressSheet !== null}
         title={progressSheet?.title ?? 'Working…'}
@@ -423,7 +417,7 @@ export function SystemChecksPanel({
                     size="sm"
                     onClick={() =>
                       void copyText(check.fix_command!).then(() =>
-                        onMessage?.('Copied to clipboard'),
+                        toast.success('Copied to clipboard'),
                       )
                     }
                   >
@@ -464,9 +458,7 @@ export function SystemChecksPanel({
 
 interface SetupChecklistProps {
   report: SetupReport;
-  message?: string | null;
   onRefresh: () => void | Promise<void>;
-  onMessage?: (msg: string) => void;
   refreshing?: boolean;
   layout?: 'stack' | 'grid';
   showRefreshButton?: boolean;
@@ -474,9 +466,7 @@ interface SetupChecklistProps {
 
 export function SetupChecklist({
   report,
-  message,
   onRefresh,
-  onMessage,
   refreshing,
   layout = 'stack',
   showRefreshButton = true,
@@ -486,9 +476,7 @@ export function SetupChecklist({
       <DetectedHardwarePanel report={report} />
       <SystemChecksPanel
         report={report}
-        message={message}
         onRefresh={onRefresh}
-        onMessage={onMessage}
         refreshing={refreshing}
         showRefreshButton={showRefreshButton}
       />

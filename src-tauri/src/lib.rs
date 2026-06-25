@@ -42,6 +42,8 @@ pub fn run() {
             state::save_profile,
             state::load_profile,
             state::delete_profile,
+            state::load_canvas_layout,
+            state::save_canvas_layout,
             state::get_setup_status,
             state::run_setup_checks,
             state::complete_onboarding,

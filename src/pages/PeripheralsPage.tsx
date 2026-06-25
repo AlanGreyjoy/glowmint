@@ -10,6 +10,7 @@ import {
   PageHeader,
   SectionCard,
   StatusBadge,
+  toast,
 } from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
@@ -19,14 +20,13 @@ export function PeripheralsPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [color, setColor] = useState('#ffffff');
   const [dpi, setDpi] = useState(1600);
-  const [message, setMessage] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
       const list = await api.listPeripherals();
       setDevices(list);
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -49,8 +49,6 @@ export function PeripheralsPage() {
         }
       />
 
-      {message ? <p className="text-sm text-emerald-200">{message}</p> : null}
-
       <SectionCard title="Detected peripherals">
         {devices.length === 0 ? (
           <EmptyState message="No ckb-next devices found. Ensure ckb-next-daemon is running." />
@@ -71,8 +69,8 @@ export function PeripheralsPage() {
                     onClick={() =>
                       void api
                         .setPeripheralRgb(device.id, hexToRgb(color))
-                        .then(() => setMessage(`RGB updated for ${device.name}`))
-                        .catch((err) => setMessage(String(err)))
+                        .then(() => toast.success(`RGB updated for ${device.name}`))
+                        .catch((err) => toast.error(String(err)))
                     }
                   >
                     Apply RGB
@@ -83,8 +81,8 @@ export function PeripheralsPage() {
                       onClick={() =>
                         void api
                           .setPeripheralDpi(device.id, dpi)
-                          .then(() => setMessage(`DPI set to ${dpi}`))
-                          .catch((err) => setMessage(String(err)))
+                          .then(() => toast.success(`DPI set to ${dpi}`))
+                          .catch((err) => toast.error(String(err)))
                       }
                     >
                       Set DPI {dpi}
@@ -95,8 +93,8 @@ export function PeripheralsPage() {
                     onClick={() =>
                       void api
                         .switchPeripheralProfile(device.id, 1)
-                        .then(() => setMessage('Switched to profile 1'))
-                        .catch((err) => setMessage(String(err)))
+                        .then(() => toast.success('Switched to profile 1'))
+                        .catch((err) => toast.error(String(err)))
                     }
                   >
                     Profile 1

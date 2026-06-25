@@ -13,6 +13,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
@@ -36,7 +37,6 @@ export function LightingPage() {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [color, setColor] = useState('#00bfff');
   const [mode, setMode] = useState<LightingMode>('static');
-  const [message, setMessage] = useState<string | null>(null);
   const [draftLedCounts, setDraftLedCounts] = useState<Record<string, number>>({});
   const [savingZoneKey, setSavingZoneKey] = useState<string | null>(null);
 
@@ -49,7 +49,7 @@ export function LightingPage() {
         setSelectedZone(list[0].zones.length > 0 ? String(list[0].zones[0].index) : null);
       }
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -79,9 +79,9 @@ export function LightingPage() {
     if (selectedDevice === null || selectedZone === null) return;
     try {
       await api.setZoneColor(Number(selectedDevice), Number(selectedZone), hexToRgb(color));
-      setMessage('Zone color applied');
+      toast.success('Zone color applied');
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -89,9 +89,9 @@ export function LightingPage() {
     if (selectedDevice === null) return;
     try {
       await api.setDeviceMode(Number(selectedDevice), mode);
-      setMessage(`Mode set to ${mode}`);
+      toast.success(`Mode set to ${mode}`);
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     }
   };
 
@@ -102,10 +102,10 @@ export function LightingPage() {
     setSavingZoneKey(key);
     try {
       await api.resizeRgbZone(deviceIndex, zone.index, ledCount);
-      setMessage(`Saved ${zone.name} (${ledCount} LEDs)`);
+      toast.success(`Saved ${zone.name} (${ledCount} LEDs)`);
       await refresh();
     } catch (err) {
-      setMessage(String(err));
+      toast.error(String(err));
     } finally {
       setSavingZoneKey(null);
     }
@@ -114,8 +114,6 @@ export function LightingPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Lighting" description="RGB control via OpenRGB" />
-
-      {message ? <p className="text-sm text-emerald-200">{message}</p> : null}
 
       {setupZones.length > 0 ? (
         <SectionCard title="RGB headers to set up">

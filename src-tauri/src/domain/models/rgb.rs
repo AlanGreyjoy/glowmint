@@ -25,6 +25,8 @@ pub struct RgbZone {
     pub resizable: bool,
     pub leds_min: usize,
     pub leds_max: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<RgbColor>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
