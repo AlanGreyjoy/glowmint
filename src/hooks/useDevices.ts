@@ -3,6 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { BackendHealth, Device } from '../lib/types';
 
+function formatDeviceError(err: unknown) {
+  const message = String(err);
+  if (message.includes('invoke')) {
+    return 'Glowmint could not reach the Tauri backend. Start the app with `npm run tauri dev`.';
+  }
+  return message;
+}
+
 export function useDevices() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [health, setHealth] = useState<BackendHealth | null>(null);
@@ -17,7 +25,7 @@ export function useDevices() {
       setDevices(found);
       setHealth(backend);
     } catch (err) {
-      setError(String(err));
+      setError(formatDeviceError(err));
     } finally {
       setLoading(false);
     }

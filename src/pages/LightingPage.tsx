@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, ColorInput, Group, NumberInput, Select, Stack, Text } from '@mantine/core';
 
-import { EmptyState, PageHeader, SectionCard } from '../components/ui';
+import {
+  Button,
+  ColorInput,
+  EmptyState,
+  Label,
+  NumberField,
+  PageHeader,
+  SectionCard,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
 import type { LightingMode, RgbDevice, RgbZone } from '../lib/types';
@@ -100,45 +112,36 @@ export function LightingPage() {
   };
 
   return (
-    <Stack gap="lg">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Lighting" description="RGB control via OpenRGB" />
 
-      {message ? (
-        <Text size="sm" c="cyan.2">
-          {message}
-        </Text>
-      ) : null}
+      {message ? <p className="text-sm text-cyan-200">{message}</p> : null}
 
       {setupZones.length > 0 ? (
         <SectionCard title="RGB headers to set up">
-          <Stack gap="md">
-            <Text size="sm" c="dimmed">
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
               These are physical RGB connectors on your PC. Enter how many LEDs are on each one you
               use — leave at 0 if nothing is plugged in.
-            </Text>
+            </p>
             {setupZones.map(({ device, zone }) => {
               const key = zoneKey(device.index, zone.index);
               return (
-                <Group key={key} align="flex-end" wrap="nowrap">
-                  <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="sm" fw={500}>
-                      {device.name}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {zone.name}
-                    </Text>
-                  </Stack>
-                  <NumberInput
+                <div key={key} className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{device.name}</p>
+                    <p className="text-xs text-muted-foreground">{zone.name}</p>
+                  </div>
+                  <NumberField
                     label="LEDs"
+                    className="w-32"
                     value={draftLedCounts[key] ?? zone.led_count}
                     min={zone.leds_min}
                     max={zone.leds_max}
-                    step={1}
-                    w={120}
                     onChange={(value) =>
                       setDraftLedCounts((prev) => ({
                         ...prev,
-                        [key]: typeof value === 'number' ? value : zone.led_count,
+                        [key]: value,
                       }))
                     }
                   />
@@ -148,10 +151,10 @@ export function LightingPage() {
                   >
                     Save
                   </Button>
-                </Group>
+                </div>
               );
             })}
-          </Stack>
+          </div>
         </SectionCard>
       ) : null}
 
@@ -159,58 +162,76 @@ export function LightingPage() {
         {devices.length === 0 ? (
           <EmptyState message="No OpenRGB devices found. Start OpenRGB with SDK server enabled." />
         ) : (
-          <Stack gap="md">
-            <Select
-              label="Device"
-              value={selectedDevice}
-              onChange={(value) => {
-                setSelectedDevice(value);
-                const device = devices.find((d) => String(d.index) === value);
-                setSelectedZone(device?.zones[0] ? String(device.zones[0].index) : null);
-              }}
-              data={devices.map((device) => ({
-                value: String(device.index),
-                label: device.name,
-              }))}
-            />
+          <div className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <Label>Device</Label>
+              <Select
+                value={selectedDevice ?? undefined}
+                onValueChange={(value) => {
+                  setSelectedDevice(value);
+                  const device = devices.find((d) => String(d.index) === value);
+                  setSelectedZone(device?.zones[0] ? String(device.zones[0].index) : null);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select device" />
+                </SelectTrigger>
+                <SelectContent>
+                  {devices.map((device) => (
+                    <SelectItem key={device.index} value={String(device.index)}>
+                      {device.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {active ? (
-              <Select
-                label="Zone"
-                value={selectedZone}
-                onChange={setSelectedZone}
-                data={active.zones.map((zone) => ({
-                  value: String(zone.index),
-                  label: `${zone.name} (${zone.led_count} LEDs)`,
-                }))}
-              />
+              <div className="space-y-2">
+                <Label>Zone</Label>
+                <Select value={selectedZone ?? undefined} onValueChange={setSelectedZone}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select zone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {active.zones.map((zone) => (
+                      <SelectItem key={zone.index} value={String(zone.index)}>
+                        {zone.name} ({zone.led_count} LEDs)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             ) : null}
 
-            <ColorInput label="Color" value={color} onChange={setColor} format="hex" />
+            <ColorInput label="Color" value={color} onChange={setColor} />
 
-            <Select
-              label="Mode"
-              value={mode}
-              onChange={(value) => setMode((value ?? 'static') as LightingMode)}
-              data={[
-                { value: 'static', label: 'Static' },
-                { value: 'breathing', label: 'Breathing' },
-                { value: 'rainbow', label: 'Rainbow' },
-              ]}
-            />
+            <div className="space-y-2">
+              <Label>Mode</Label>
+              <Select value={mode} onValueChange={(value) => setMode(value as LightingMode)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="static">Static</SelectItem>
+                  <SelectItem value="breathing">Breathing</SelectItem>
+                  <SelectItem value="rainbow">Rainbow</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Group>
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => void applyColor()}>Apply Color</Button>
-              <Button variant="light" onClick={() => void applyMode()}>
+              <Button variant="secondary" onClick={() => void applyMode()}>
                 Apply Mode
               </Button>
-              <Button variant="light" onClick={() => void refresh()}>
+              <Button variant="secondary" onClick={() => void refresh()}>
                 Refresh
               </Button>
-            </Group>
-          </Stack>
+            </div>
+          </div>
         )}
       </SectionCard>
-    </Stack>
+    </div>
   );
 }

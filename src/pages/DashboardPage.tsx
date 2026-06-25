@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom';
-import { Alert, Button, Group, SimpleGrid, Stack, Text } from '@mantine/core';
-import { RefreshCw } from 'lucide-react';
+import { Cable, Droplets, Keyboard, RefreshCw } from 'lucide-react';
 
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
   EmptyState,
+  GlassSurface,
   ListItemCard,
   PageHeader,
   SectionCard,
@@ -16,26 +20,57 @@ interface DashboardPageProps {
   onOpenSetup?: () => void;
 }
 
+function formatStatus(status?: string) {
+  if (!status) return 'Unavailable';
+  return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+}
+
 export function DashboardPage({ showSetupBanner, onOpenSetup }: DashboardPageProps) {
   const { devices, health, loading, error, refresh } = useDevices();
+  const backendCards = [
+    {
+      label: 'OpenRGB',
+      status: health?.openrgb,
+      icon: Cable,
+      accent: 'bg-emerald-300/18 text-emerald-100',
+    },
+    {
+      label: 'liquidctl',
+      status: health?.liquidctl,
+      icon: Droplets,
+      accent: 'bg-sky-300/18 text-sky-100',
+    },
+    {
+      label: 'ckb-next',
+      status: health?.ckb_next,
+      icon: Keyboard,
+      accent: 'bg-violet-300/18 text-violet-100',
+    },
+  ];
 
   return (
-    <Stack gap="lg">
+    <div className="flex flex-col gap-5">
       {showSetupBanner ? (
-        <Alert color="yellow" title="Setup incomplete" variant="light">
-          <Group justify="space-between" wrap="nowrap">
-            <Text size="sm">Some Corsair features may not work yet.</Text>
-            <Group gap="sm">
-              <Text component={Link} to="/setup" size="sm" c="yellow.2">
-                Setup page
-              </Text>
-              {onOpenSetup ? (
-                <Button variant="subtle" size="compact-sm" onClick={onOpenSetup}>
-                  Run wizard
-                </Button>
-              ) : null}
-            </Group>
-          </Group>
+        <Alert className="glowmint-glass glowmint-glass--panel bg-yellow-300/14 text-white">
+          <AlertTitle className="text-yellow-50">Setup incomplete</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm text-white/74">Some Corsair features may not work yet.</span>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/setup"
+                  className="text-sm text-yellow-50 underline-offset-4 hover:underline"
+                >
+                  Setup page
+                </Link>
+                {onOpenSetup ? (
+                  <Button variant="ghost" size="sm" onClick={onOpenSetup}>
+                    Run wizard
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -43,60 +78,66 @@ export function DashboardPage({ showSetupBanner, onOpenSetup }: DashboardPagePro
         title="Dashboard"
         description="Corsair devices detected on this system"
         actions={
-          <Button
-            variant="light"
-            onClick={() => void refresh()}
-            leftSection={<RefreshCw size={14} />}
-          >
+          <Button variant="secondary" onClick={() => void refresh()}>
+            <RefreshCw size={14} data-icon="inline-start" />
             Refresh
           </Button>
         }
       />
 
       {error ? (
-        <Text size="sm" c="red.3">
-          {error}
-        </Text>
+        <Alert className="glowmint-glass glowmint-glass--inset bg-rose-400/14 text-white">
+          <AlertTitle className="text-rose-50">Backend unavailable</AlertTitle>
+          <AlertDescription className="text-white/72">{error}</AlertDescription>
+        </Alert>
       ) : null}
 
-      <SimpleGrid cols={{ base: 1, md: 3 }}>
-        <SectionCard title="OpenRGB">
-          <StatusBadge status={health?.openrgb ?? 'unavailable'} label={health?.openrgb ?? '—'} />
-        </SectionCard>
-        <SectionCard title="liquidctl">
-          <StatusBadge
-            status={health?.liquidctl ?? 'unavailable'}
-            label={health?.liquidctl ?? '—'}
-          />
-        </SectionCard>
-        <SectionCard title="ckb-next">
-          <StatusBadge status={health?.ckb_next ?? 'unavailable'} label={health?.ckb_next ?? '—'} />
-        </SectionCard>
-      </SimpleGrid>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {backendCards.map(({ label, status, icon: Icon, accent }) => (
+          <GlassSurface key={label} variant="panel" className="min-h-24 p-4">
+            <div className="flex h-full items-center gap-4">
+              <div className={`flex size-11 items-center justify-center rounded-full ${accent}`}>
+                <Icon size={20} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-white/58">{label}</p>
+                <p className="mt-1 text-xl font-semibold leading-none text-white drop-shadow-sm">
+                  {formatStatus(status)}
+                </p>
+                <StatusBadge
+                  status={status ?? 'unavailable'}
+                  label={status ? 'Backend health' : 'No response'}
+                  className="mt-3"
+                />
+              </div>
+            </div>
+          </GlassSurface>
+        ))}
+      </div>
 
-      <SectionCard title="Devices">
+      <SectionCard title="Devices" className="min-h-24">
         {loading ? (
           <EmptyState message="" loading loadingMessage="Scanning..." />
         ) : devices.length === 0 ? (
           <EmptyState message="No Corsair devices found. Check Setup for dependency installation." />
         ) : (
-          <Stack gap="xs">
+          <div className="flex flex-col gap-2">
             {devices.map((device) => (
               <ListItemCard key={device.id}>
-                <Group justify="space-between">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Text fw={500}>{device.name}</Text>
-                    <Text size="xs" c="dimmed">
+                    <p className="font-medium">{device.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {device.kind} · {device.backend}
-                    </Text>
+                    </p>
                   </div>
                   <StatusBadge status={device.status} />
-                </Group>
+                </div>
               </ListItemCard>
             ))}
-          </Stack>
+          </div>
         )}
       </SectionCard>
-    </Stack>
+    </div>
   );
 }

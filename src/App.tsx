@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { Center, Loader, Text } from '@mantine/core';
 
 import { AppShellLayout } from './components/AppShell';
+import { Spinner } from './components/ui';
 import { useSetupGate } from './hooks/useSetupGate';
 import { AioPage } from './pages/AioPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -15,12 +15,12 @@ function MainApp() {
 
   if (setup.loading) {
     return (
-      <Center mih="100vh">
-        <div style={{ textAlign: 'center' }}>
-          <Loader size="sm" mb="sm" />
-          <Text c="dimmed">Loading Glowmint…</Text>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Spinner className="mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading Glowmint…</p>
         </div>
-      </Center>
+      </div>
     );
   }
 

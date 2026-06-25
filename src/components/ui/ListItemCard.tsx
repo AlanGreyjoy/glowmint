@@ -1,12 +1,22 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { Box, Collapse, Group, UnstyledButton, type PaperProps } from '@mantine/core';
 
+import { cn } from '@/lib/utils';
+
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './collapsible';
 import { GlassSurface } from './GlassSurface';
+
+const paddingClasses = {
+  xs: 'p-2',
+  sm: 'p-3',
+  md: 'p-4',
+} as const;
+
+type ListItemPadding = keyof typeof paddingClasses;
 
 interface ListItemCardBaseProps {
   children: ReactNode;
-  padding?: PaperProps['p'];
+  padding?: ListItemPadding;
 }
 
 interface ListItemCardDefaultProps extends ListItemCardBaseProps {
@@ -23,46 +33,47 @@ interface ListItemCardCollapsibleProps extends ListItemCardBaseProps {
 
 type ListItemCardProps = ListItemCardDefaultProps | ListItemCardCollapsibleProps;
 
-export function ListItemCard(props: ListItemCardProps) {
-  const { children, padding = 'sm' } = props;
-
-  if (props.variant === 'collapsible') {
-    const [expanded, setExpanded] = useState(props.defaultExpanded ?? false);
-
-    return (
-      <GlassSurface variant="inset" p={0}>
-        <UnstyledButton
-          w="100%"
-          p={padding}
-          onClick={() => setExpanded((open) => !open)}
-          style={{ borderRadius: 'inherit' }}
-        >
-          <Group justify="space-between" wrap="nowrap" gap="sm">
-            <Box flex={1} style={{ minWidth: 0 }}>
-              {props.header}
-            </Box>
-            <ChevronDown
-              size={16}
-              color="var(--mantine-color-dimmed)"
-              style={{
-                flexShrink: 0,
-                transform: expanded ? 'rotate(180deg)' : undefined,
-                transition: 'transform 200ms ease',
-              }}
-            />
-          </Group>
-        </UnstyledButton>
-        <Collapse expanded={expanded}>
-          <Box px={padding} pb={padding}>
-            {children}
-          </Box>
-        </Collapse>
-      </GlassSurface>
-    );
-  }
+function CollapsibleListItemCard({
+  children,
+  padding = 'sm',
+  header,
+  defaultExpanded = false,
+}: ListItemCardCollapsibleProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const paddingClass = paddingClasses[padding];
 
   return (
-    <GlassSurface variant="inset" p={padding}>
+    <GlassSurface variant="inset" className="overflow-hidden p-0">
+      <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <CollapsibleTrigger className={cn('w-full rounded-[inherit]', paddingClass)}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 text-left">{header}</div>
+            <ChevronDown
+              size={16}
+              className={cn(
+                'shrink-0 text-muted-foreground transition-transform duration-200',
+                expanded && 'rotate-180',
+              )}
+            />
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className={cn('px-3 pb-3', padding === 'md' && 'px-4 pb-4')}>
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </GlassSurface>
+  );
+}
+
+export function ListItemCard(props: ListItemCardProps) {
+  if (props.variant === 'collapsible') {
+    return <CollapsibleListItemCard {...props} />;
+  }
+
+  const { children, padding = 'sm' } = props;
+
+  return (
+    <GlassSurface variant="inset" className={paddingClasses[padding]}>
       {children}
     </GlassSurface>
   );

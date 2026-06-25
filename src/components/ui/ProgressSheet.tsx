@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
-import { Center, Loader, Stack, Text, Title } from '@mantine/core';
 
 import { GlassSurface } from './GlassSurface';
+import { Spinner } from './Spinner';
 
 interface ProgressSheetProps {
   opened: boolean;
@@ -15,30 +15,17 @@ export function ProgressSheet({ opened, title, message }: ProgressSheetProps) {
   }
 
   return createPortal(
-    <Center
-      pos="fixed"
-      inset={0}
-      style={{
-        zIndex: 10000,
-        background: 'rgba(8, 10, 14, 0.72)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-      }}
-    >
-      <GlassSurface variant="panel" p="xl" maw={440} w="min(90vw, 440px)">
-        <Stack align="center" gap="lg">
-          <Loader color="cyan" size="lg" type="dots" />
-          <Stack align="center" gap="xs">
-            <Title order={3} ta="center">
-              {title}
-            </Title>
-            <Text size="sm" c="dimmed" ta="center" style={{ whiteSpace: 'pre-wrap' }}>
-              {message}
-            </Text>
-          </Stack>
-        </Stack>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[rgba(8,10,14,0.72)] backdrop-blur-md">
+      <GlassSurface variant="panel" className="w-[min(90vw,440px)] max-w-[440px] p-8">
+        <div className="flex flex-col items-center gap-6">
+          <Spinner size="lg" />
+          <div className="space-y-2 text-center">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            <p className="whitespace-pre-wrap text-sm text-muted-foreground">{message}</p>
+          </div>
+        </div>
       </GlassSurface>
-    </Center>,
+    </div>,
     document.body,
   );
 }

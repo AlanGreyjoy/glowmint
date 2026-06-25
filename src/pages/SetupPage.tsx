@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Group, Stack, Text, TextInput } from '@mantine/core';
 
-import { EmptyState, ListItemCard, PageHeader, SectionCard } from '../components/ui';
+import { Button, EmptyState, Input, ListItemCard, PageHeader, SectionCard } from '../components/ui';
 import { SetupChecklist } from '../features/setup/SetupChecklist';
 import { api } from '../lib/api';
 import type { Profile, SetupReport } from '../lib/types';
@@ -57,13 +56,13 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
   };
 
   return (
-    <Stack gap="lg">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Setup"
         description="System checks, permissions, and profiles"
         actions={
           onRerunWizard ? (
-            <Button variant="light" onClick={onRerunWizard}>
+            <Button variant="secondary" onClick={onRerunWizard}>
               Run setup wizard again
             </Button>
           ) : undefined
@@ -83,26 +82,26 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
       )}
 
       <SectionCard title="Profiles">
-        <Group mb="md">
-          <TextInput
-            flex={1}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Input
+            className="min-w-[200px] flex-1"
             value={profileName}
-            onChange={(e) => setProfileName(e.target.value)}
+            onChange={(event) => setProfileName(event.target.value)}
             placeholder="Profile name"
           />
           <Button onClick={() => void saveProfile()}>Save</Button>
-        </Group>
+        </div>
         {profiles.length === 0 ? (
           <EmptyState message="No profiles saved yet." />
         ) : (
-          <Stack gap="xs">
+          <div className="flex flex-col gap-2">
             {profiles.map((name) => (
               <ListItemCard key={name} padding="xs">
-                <Group justify="space-between">
-                  <Text size="sm">{name}</Text>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm">{name}</span>
                   <Button
-                    variant="light"
-                    size="compact-sm"
+                    variant="secondary"
+                    size="sm"
                     onClick={() =>
                       void api
                         .loadProfile(name)
@@ -112,12 +111,12 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
                   >
                     Load
                   </Button>
-                </Group>
+                </div>
               </ListItemCard>
             ))}
-          </Stack>
+          </div>
         )}
       </SectionCard>
-    </Stack>
+    </div>
   );
 }

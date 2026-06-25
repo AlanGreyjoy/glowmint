@@ -1,9 +1,10 @@
-import type { CSSProperties, ReactNode } from 'react';
-import { Paper, type PaperProps } from '@mantine/core';
+import type { CSSProperties, HTMLAttributes, ReactNode } from 'react';
+
+import { cn } from '@/lib/utils';
 
 export type GlassVariant = 'panel' | 'inset' | 'bar';
 
-interface GlassSurfaceProps extends Omit<PaperProps, 'withBorder'> {
+interface GlassSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   variant?: GlassVariant;
   children: ReactNode;
 }
@@ -17,7 +18,6 @@ export function glassStyle(variant: GlassVariant = 'panel'): CSSProperties {
     background: `var(--glowmint-glass-${variant}-bg)`,
     backdropFilter: `var(--glowmint-glass-${variant}-backdrop)`,
     WebkitBackdropFilter: `var(--glowmint-glass-${variant}-backdrop)`,
-    border: `var(--glowmint-glass-${variant}-border)`,
     boxShadow: `var(--glowmint-glass-${variant}-shadow)`,
   };
 }
@@ -30,14 +30,12 @@ export function GlassSurface({
   ...props
 }: GlassSurfaceProps) {
   return (
-    <Paper
-      withBorder={false}
-      bg="transparent"
-      className={[glassClassName(variant), className].filter(Boolean).join(' ')}
+    <div
+      className={cn(glassClassName(variant), 'rounded-2xl', className)}
       style={{ ...glassStyle(variant), ...style }}
       {...props}
     >
       {children}
-    </Paper>
+    </div>
   );
 }

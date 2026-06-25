@@ -35,9 +35,9 @@ Glowmint’s look is **dark-mode glassmorphism**, inspired by Apple’s **Liquid
 | Layering | Functional glass above a rich canvas (gradients, depth) | `panel` / `inset` / `bar` variants on `GlassSurface` |
 | Borders | Liquid Glass avoids hard strokes; depth from material, not outlines | **No borders** — blur, tint, and subtle inset shadows only |
 
-Use **`GlassSurface`** (`src/components/ui/GlassSurface.tsx`) for cards and panels — never raw `Paper withBorder` or hard-bordered boxes. Theme hooks: `theme.other.glowmint` in `src/theme.ts`.
+Use **`GlassSurface`** (`src/components/ui/GlassSurface.tsx`) for cards and panels — apply glass via `--glowmint-glass-*` tokens in `src/index.css`, not opaque card fills.
 
-**Component library.** Follow `.cursor/rules/component-library.mdc`: shared UI in `src/components/ui/` with a strict re-use-or-create policy. Wrap Mantine inside ui components; pages/features import from `components/ui`, not Mantine directly.
+**Component library.** Follow `.cursor/rules/component-library.mdc`: shared UI in `src/components/ui/` (shadcn/Radix primitives + Glowmint wrappers). Pages/features import from `components/ui`.
 
 ## App areas
 

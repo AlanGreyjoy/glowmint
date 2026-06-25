@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { Button, ColorInput, Group, NumberInput, Stack, Text } from '@mantine/core';
 
-import { EmptyState, ListItemCard, PageHeader, SectionCard, StatusBadge } from '../components/ui';
+import {
+  Button,
+  ColorInput,
+  EmptyState,
+  ListItemCard,
+  NumberField,
+  PageHeader,
+  SectionCard,
+  StatusBadge,
+} from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
 import type { Device } from '../lib/types';
@@ -27,13 +35,13 @@ export function PeripheralsPage() {
   }, []);
 
   return (
-    <Stack gap="lg">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Peripherals"
         description="Keyboards and mice via ckb-next"
         actions={
           <Button
-            variant="light"
+            variant="secondary"
             onClick={() => void openUrl('https://github.com/ckb-next/ckb-next')}
           >
             Open ckb-next docs
@@ -41,31 +49,25 @@ export function PeripheralsPage() {
         }
       />
 
-      {message ? (
-        <Text size="sm" c="cyan.2">
-          {message}
-        </Text>
-      ) : null}
+      {message ? <p className="text-sm text-cyan-200">{message}</p> : null}
 
       <SectionCard title="Detected peripherals">
         {devices.length === 0 ? (
           <EmptyState message="No ckb-next devices found. Ensure ckb-next-daemon is running." />
         ) : (
-          <Stack gap="md">
+          <div className="flex flex-col gap-4">
             {devices.map((device) => (
               <ListItemCard key={device.id} padding="md">
-                <Group justify="space-between" mb="sm">
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <Text fw={500}>{device.name}</Text>
-                    <Text size="xs" c="dimmed">
-                      {device.id}
-                    </Text>
+                    <p className="font-medium">{device.name}</p>
+                    <p className="text-xs text-muted-foreground">{device.id}</p>
                   </div>
                   <StatusBadge status="available" label={device.kind} />
-                </Group>
-                <Group>
+                </div>
+                <div className="flex flex-wrap gap-2">
                   <Button
-                    variant="light"
+                    variant="secondary"
                     onClick={() =>
                       void api
                         .setPeripheralRgb(device.id, hexToRgb(color))
@@ -77,7 +79,7 @@ export function PeripheralsPage() {
                   </Button>
                   {device.capabilities.includes('dpi') ? (
                     <Button
-                      variant="light"
+                      variant="secondary"
                       onClick={() =>
                         void api
                           .setPeripheralDpi(device.id, dpi)
@@ -89,7 +91,7 @@ export function PeripheralsPage() {
                     </Button>
                   ) : null}
                   <Button
-                    variant="light"
+                    variant="secondary"
                     onClick={() =>
                       void api
                         .switchPeripheralProfile(device.id, 1)
@@ -99,26 +101,26 @@ export function PeripheralsPage() {
                   >
                     Profile 1
                   </Button>
-                </Group>
+                </div>
               </ListItemCard>
             ))}
-          </Stack>
+          </div>
         )}
       </SectionCard>
 
       <SectionCard title="Controls">
-        <Stack gap="md">
-          <ColorInput label="RGB color" value={color} onChange={setColor} format="hex" />
-          <NumberInput
+        <div className="flex flex-col gap-4">
+          <ColorInput label="RGB color" value={color} onChange={setColor} />
+          <NumberField
             label="Mouse DPI"
             min={400}
             max={26000}
             step={100}
             value={dpi}
-            onChange={(value) => setDpi(typeof value === 'number' ? value : 1600)}
+            onChange={setDpi}
           />
-        </Stack>
+        </div>
       </SectionCard>
-    </Stack>
+    </div>
   );
 }

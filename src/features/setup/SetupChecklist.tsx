@@ -1,17 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { CheckCircle2, CircleAlert, CircleHelp, XCircle } from 'lucide-react';
-import { Alert, Badge, Button, Code, Group, Modal, SimpleGrid, Stack, Text } from '@mantine/core';
 
-import { EmptyState, ListItemCard, ProgressSheet, SectionCard, StatusBadge } from '../../components/ui';
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  EmptyState,
+  ListItemCard,
+  ProgressSheet,
+  SectionCard,
+  StatusBadge,
+} from '../../components/ui';
+import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
-import type { CheckStatus, SetupCheck, SetupEnvironment, SetupReport, UsbDeviceInfo } from '../../lib/types';
+import type {
+  CheckStatus,
+  SetupCheck,
+  SetupEnvironment,
+  SetupReport,
+  UsbDeviceInfo,
+} from '../../lib/types';
 
 function StatusIcon({ status }: { status: CheckStatus }) {
-  if (status === 'pass') return <CheckCircle2 color="var(--mantine-color-green-4)" size={18} />;
-  if (status === 'fail') return <XCircle color="var(--mantine-color-red-4)" size={18} />;
-  if (status === 'warn') return <CircleAlert color="var(--mantine-color-yellow-4)" size={18} />;
-  return <CircleHelp color="var(--mantine-color-gray-5)" size={18} />;
+  if (status === 'pass') return <CheckCircle2 className="size-[18px] text-green-400" />;
+  if (status === 'fail') return <XCircle className="size-[18px] text-red-400" />;
+  if (status === 'warn') return <CircleAlert className="size-[18px] text-yellow-400" />;
+  return <CircleHelp className="size-[18px] text-muted-foreground" />;
 }
 
 function productHint(productId: number): string {
@@ -106,36 +127,38 @@ function FixResultModal({
   feedback: FixFeedback | null;
   onClose: () => void;
 }) {
-  if (!feedback) {
-    return null;
-  }
-
-  const color =
-    feedback.tone === 'success' ? 'green' : feedback.tone === 'error' ? 'red' : 'cyan';
+  const alertClassName =
+    feedback?.tone === 'success'
+      ? 'border-green-500/30 bg-green-500/10 text-green-200'
+      : feedback?.tone === 'error'
+        ? 'border-red-500/30 bg-red-500/10 text-red-200'
+        : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200';
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={feedback.title}
-      centered
-    >
-      <Stack gap="md">
-        <Alert color={color} variant="light">
-          <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-            {feedback.summary}
-          </Text>
-        </Alert>
-        {feedback.log ? (
-          <Code block fz="xs" style={{ maxHeight: 240, overflow: 'auto' }}>
-            {feedback.log}
-          </Code>
+    <Dialog open={opened && feedback !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="glowmint-glass glowmint-glass--panel sm:max-w-lg">
+        {feedback ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{feedback.title}</DialogTitle>
+            </DialogHeader>
+            <Alert className={alertClassName}>
+              <AlertDescription className="whitespace-pre-wrap text-sm">
+                {feedback.summary}
+              </AlertDescription>
+            </Alert>
+            {feedback.log ? (
+              <pre className="max-h-60 overflow-auto rounded-md border border-border bg-black/30 p-3 font-mono text-xs">
+                {feedback.log}
+              </pre>
+            ) : null}
+            <DialogFooter>
+              <Button onClick={onClose}>Done</Button>
+            </DialogFooter>
+          </>
         ) : null}
-        <Group justify="flex-end">
-          <Button onClick={onClose}>Done</Button>
-        </Group>
-      </Stack>
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -146,18 +169,18 @@ function PlatformSetupBanner({ platform }: { platform: SetupEnvironment }) {
 
   if (platform.package_manager === 'apt') {
     return (
-      <Text size="sm" c="yellow.2" mb="md">
+      <p className="mb-4 text-sm text-yellow-200">
         Auto-install requires polkit (pkexec) and admin approval. Copy the commands below if Install
         is unavailable.
-      </Text>
+      </p>
     );
   }
 
   return (
-    <Text size="sm" c="yellow.2" mb="md">
+    <p className="mb-4 text-sm text-yellow-200">
       Auto-install works on Debian/Ubuntu/Mint. On {platform.distro_label}, copy the commands below
       into your terminal.
-    </Text>
+    </p>
   );
 }
 
@@ -170,19 +193,15 @@ function HardwareItem({ device }: { device: UsbDeviceInfo }) {
 
   return (
     <ListItemCard>
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <Text fw={500} size="sm">
-            {hint}
-          </Text>
-          <Text size="xs" c="dimmed" mt={2}>
-            {device.description}
-          </Text>
+          <p className="text-sm font-medium">{hint}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{device.description}</p>
         </div>
-        <Text ff="monospace" size="xs" c="cyan.3">
+        <p className="font-mono text-xs text-cyan-300">
           {device.vendor_id.toString(16)}:{device.product_id.toString(16).padStart(4, '0')}
-        </Text>
-      </Group>
+        </p>
+      </div>
     </ListItemCard>
   );
 }
@@ -195,34 +214,41 @@ export function DetectedHardwarePanel({ report }: DetectedHardwarePanelProps) {
       title="Detected hardware"
       fillHeight
       headerRight={
-        <Badge variant="light" color={corsair_devices.length > 0 ? 'cyan' : 'gray'}>
+        <Badge
+          variant="outline"
+          className={
+            corsair_devices.length > 0
+              ? 'border-cyan-500/30 bg-cyan-500/15 text-cyan-300'
+              : 'text-muted-foreground'
+          }
+        >
           {corsair_devices.length} device{corsair_devices.length === 1 ? '' : 's'}
         </Badge>
       }
     >
       {has_lcd_hardware || has_aio_hardware ? (
-        <Group gap="xs" mb="md">
+        <div className="mb-4 flex flex-wrap gap-2">
           {has_lcd_hardware ? (
-            <Badge variant="outline" color="cyan">
+            <Badge variant="outline" className="border-cyan-500/30 text-cyan-300">
               LCD screen
             </Badge>
           ) : null}
           {has_aio_hardware ? (
-            <Badge variant="outline" color="blue">
+            <Badge variant="outline" className="border-blue-500/30 text-blue-300">
               AIO cooler
             </Badge>
           ) : null}
-        </Group>
+        </div>
       ) : null}
 
       {corsair_devices.length === 0 ? (
         <EmptyState message="No Corsair USB devices found yet. Plug in your gear and hit Re-check." />
       ) : (
-        <Stack gap="xs">
+        <div className="flex flex-col gap-2">
           {corsair_devices.map((d) => (
             <HardwareItem key={`${d.bus}-${d.device}`} device={d} />
           ))}
-        </Stack>
+        </div>
       )}
     </SectionCard>
   );
@@ -338,16 +364,19 @@ export function SystemChecksPanel({
       title="System checks"
       fillHeight
       headerRight={
-        <Badge variant="light" color={report.all_required_pass ? 'green' : 'yellow'}>
+        <Badge
+          variant="outline"
+          className={cn(
+            report.all_required_pass
+              ? 'border-green-500/30 bg-green-500/15 text-green-400'
+              : 'border-yellow-500/30 bg-yellow-500/15 text-yellow-400',
+          )}
+        >
           {passedCount}/{report.checks.length} passed
         </Badge>
       }
     >
-      {message ? (
-        <Text size="sm" c="cyan.2" mb="md">
-          {message}
-        </Text>
-      ) : null}
+      {message ? <p className="mb-4 text-sm text-cyan-200">{message}</p> : null}
 
       <ProgressSheet
         opened={fixInProgress && progressSheet !== null}
@@ -363,7 +392,7 @@ export function SystemChecksPanel({
 
       <PlatformSetupBanner platform={report.platform} />
 
-      <Stack gap="md">
+      <div className="flex flex-col gap-4">
         {report.checks.map((check) => (
           <ListItemCard
             key={check.id}
@@ -371,29 +400,27 @@ export function SystemChecksPanel({
             padding="md"
             defaultExpanded={check.status !== 'pass'}
             header={
-              <Group justify="space-between" align="center" wrap="nowrap">
-                <Group align="center" wrap="nowrap" gap="sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
                   <StatusIcon status={check.status} />
-                  <Text fw={500}>{check.label}</Text>
-                </Group>
+                  <span className="font-medium">{check.label}</span>
+                </div>
                 <StatusBadge status={check.status} />
-              </Group>
+              </div>
             }
           >
-            <Text size="xs" c="dimmed">
-              {check.message}
-            </Text>
+            <p className="text-xs text-muted-foreground">{check.message}</p>
             {check.fix_command ? (
-              <Code block mt="xs" fz="xs">
+              <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-black/30 p-2 font-mono text-xs">
                 {check.fix_command}
-              </Code>
+              </pre>
             ) : null}
             {check.fix_command || check.can_auto_fix ? (
-              <Group gap="xs" mt="sm">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {check.fix_command ? (
                   <Button
-                    variant="light"
-                    size="compact-sm"
+                    variant="secondary"
+                    size="sm"
                     onClick={() =>
                       void copyText(check.fix_command!).then(() =>
                         onMessage?.('Copied to clipboard'),
@@ -405,24 +432,26 @@ export function SystemChecksPanel({
                 ) : null}
                 {check.can_auto_fix ? (
                   <Button
-                    size="compact-sm"
+                    size="sm"
                     loading={fixingCheckId === check.id}
                     disabled={fixInProgress && fixingCheckId !== check.id}
                     onClick={() => void handleAutoFix(check)}
                   >
-                    {fixingCheckId === check.id ? autoFixBusyLabel(check.id) : autoFixLabel(check.id)}
+                    {fixingCheckId === check.id
+                      ? autoFixBusyLabel(check.id)
+                      : autoFixLabel(check.id)}
                   </Button>
                 ) : null}
-              </Group>
+              </div>
             ) : null}
           </ListItemCard>
         ))}
-      </Stack>
+      </div>
 
       {showRefreshButton ? (
         <Button
-          variant="light"
-          mt="md"
+          variant="secondary"
+          className="mt-4"
           onClick={onRefresh}
           disabled={refreshing || fixInProgress}
         >
@@ -467,14 +496,10 @@ export function SetupChecklist({
   );
 
   if (layout === 'grid') {
-    return (
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {panels}
-      </SimpleGrid>
-    );
+    return <div className="grid grid-cols-1 gap-6 md:grid-cols-2">{panels}</div>;
   }
 
-  return <Stack gap="md">{panels}</Stack>;
+  return <div className="flex flex-col gap-4">{panels}</div>;
 }
 
 export function setupIncompleteBanner(status: {

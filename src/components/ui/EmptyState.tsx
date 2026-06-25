@@ -1,4 +1,4 @@
-import { Text } from '@mantine/core';
+import { Spinner } from './Spinner';
 
 interface EmptyStateProps {
   message: string;
@@ -7,9 +7,14 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ message, loading, loadingMessage = 'Loading…' }: EmptyStateProps) {
-  return (
-    <Text size="sm" c="dimmed">
-      {loading ? loadingMessage : message}
-    </Text>
-  );
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner size="sm" />
+        <span>{loadingMessage}</span>
+      </div>
+    );
+  }
+
+  return <p className="text-sm text-muted-foreground">{message}</p>;
 }

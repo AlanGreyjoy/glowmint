@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Box, Button, Group, Stack, Text } from '@mantine/core';
 
-import { EmptyState, GlassSurface, PageHeader } from '../components/ui';
+import { Button, EmptyState, GlassSurface, PageHeader } from '../components/ui';
 import { SetupChecklist } from '../features/setup/SetupChecklist';
 import { api } from '../lib/api';
 import type { SetupReport } from '../lib/types';
@@ -50,16 +49,16 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
   };
 
   return (
-    <Stack mih="100vh" gap={0}>
-      <Box px="lg" py="md">
+    <div className="flex min-h-screen flex-col">
+      <div className="px-6 py-4">
         <PageHeader
           title="Welcome to Glowmint"
           description="Let's get your Corsair gear working on Linux — we'll check what's installed and what still needs setup."
         />
-      </Box>
+      </div>
 
-      <Box flex={1} p="lg" style={{ overflow: 'auto' }}>
-        <Box maw={1100} mx="auto">
+      <div className="flex-1 overflow-auto p-6">
+        <div className="mx-auto max-w-[1100px]">
           {report ? (
             <SetupChecklist
               report={report}
@@ -73,29 +72,29 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
           ) : (
             <EmptyState message="" loading loadingMessage="Running system checks…" />
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
-      <GlassSurface variant="bar" className="glowmint-glass-footer" p="md" px="lg" radius={0}>
-        <Group justify="space-between">
-          <Button variant="light" onClick={() => void handleSkip()}>
+      <GlassSurface variant="bar" className="glowmint-glass-footer rounded-none px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button variant="secondary" onClick={() => void handleSkip()}>
             Skip for now
           </Button>
-          <Group>
-            <Button variant="light" onClick={() => void refresh()} disabled={refreshing}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => void refresh()} disabled={refreshing}>
               Re-check
             </Button>
             <Button onClick={() => void handleContinue()} disabled={!report?.all_required_pass}>
               Continue to Glowmint
             </Button>
-          </Group>
-        </Group>
+          </div>
+        </div>
         {report && !report.all_required_pass ? (
-          <Text size="xs" c="dimmed" ta="center" mt="sm">
+          <p className="mt-3 text-center text-xs text-muted-foreground">
             Fix required items above, or skip to explore the app with limited functionality.
-          </Text>
+          </p>
         ) : null}
       </GlassSurface>
-    </Stack>
+    </div>
   );
 }

@@ -27,11 +27,11 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 ```
 
 ```tsx
-// ❌ BAD — new Paper + Title section header copied from another page
-<Paper p="md" withBorder>
-  <Title order={4} mb="md">Devices</Title>
+// ❌ BAD — new bordered card + title copied from another page
+<div className="rounded-lg border p-4">
+  <h2 className="mb-4 text-lg font-semibold">Devices</h2>
   ...
-</Paper>
+</div>
 
 // ✅ GOOD — extract once, use everywhere
 import { SectionCard } from '../components/ui/SectionCard';
@@ -51,8 +51,8 @@ import { SectionCard } from '../components/ui/SectionCard';
 
 - **One component per file** in `src/components/ui/` (PascalCase filename matching export).
 - **Export from** `src/components/ui/index.ts` for public API.
-- **Wrap Mantine** (`@mantine/core`) inside ui components — pages/features import from `components/ui`, not Mantine directly, unless no wrapper exists yet (then create one).
-- **Props over variants** — prefer typed props; use Mantine `variant`/`color` props consistently with the theme in `src/theme.ts`.
+- **shadcn + Glowmint wrappers** — use shadcn/Radix primitives (`button`, `dialog`, etc.) and Glowmint wrappers (`SectionCard`, `GlassSurface`, `StatusBadge`). Pages/features import from `components/ui`, not Radix or shadcn paths directly unless adding a new primitive.
+- **Props over variants** — prefer typed props; use Tailwind + shadcn variants consistently with tokens in `src/index.css`.
 - **No business logic** — ui components receive data/callbacks; no `invoke()`, no API calls.
 
 ## Creating a new ui component
