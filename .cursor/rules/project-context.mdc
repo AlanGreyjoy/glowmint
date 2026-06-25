@@ -1,0 +1,56 @@
+---
+description: Glowmint project overview and app areas
+alwaysApply: true
+---
+
+# Glowmint
+
+Linux-native desktop app for Corsair hardware — an iCUE alternative for Mint and other distros.
+
+**Stack:** Tauri 2 (Rust backend) + React 19 + TypeScript + Tailwind CSS + Vite.
+
+## App areas
+
+| Route | Purpose |
+| --- | --- |
+| `/` (Dashboard) | Device overview, backend health, setup banner |
+| `/aio` | Elite AIO LCD + pump/fan cooling |
+| `/lighting` | RGB zones and lighting modes |
+| `/peripherals` | Keyboards, mice — RGB, DPI, profiles |
+| `/setup` | System checks, udev rules, backend setup |
+| Welcome wizard | First-run onboarding (blocks main app until complete/skipped) |
+
+## Hardware backends
+
+| Area | Backend | Driver path |
+| --- | --- | --- |
+| Elite AIO LCD | Native Rust HID | `src-tauri/src/drivers/corsair_lcd/` |
+| Pump / fans | liquidctl | `src-tauri/src/drivers/liquidctl.rs` |
+| RGB lighting | OpenRGB | `src-tauri/src/drivers/openrgb.rs` |
+| Keyboards / mice | ckb-next | `src-tauri/src/drivers/ckb_next.rs` |
+
+Profiles (save/load LCD, cooling, RGB settings) are persisted via `profile_service` + `profile_store`.
+
+## Architecture
+
+Layered flow: **React UI → `src/lib/api.ts` (invoke) → Tauri commands (`state.rs`) → services → drivers → hardware**.
+
+| Layer | Path |
+| --- | --- |
+| Pages | `src/pages/` |
+| Feature UI | `src/features/` |
+| API | `src/lib/api.ts`, `src/lib/types.ts` |
+| IPC | `src-tauri/src/state.rs` |
+| Services | `src-tauri/src/services/` |
+| Domain | `src-tauri/src/domain/` (pure types/traits — no Tauri/USB imports) |
+| Drivers | `src-tauri/src/drivers/` |
+
+See `CONTRIBUTING.md` for where new code goes and how to add a backend.
+
+## Dev commands
+
+```bash
+npm run tauri dev   # run app
+cargo test          # Rust tests (from src-tauri/)
+npm run lint        # eslint + prettier
+```

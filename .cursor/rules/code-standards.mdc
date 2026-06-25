@@ -1,0 +1,68 @@
+---
+description: Layered architecture and coding standards for Glowmint
+alwaysApply: true
+---
+
+# Code Standards
+
+Glowmint uses **layered architecture** with **ports & adapters**: domain traits define hardware contracts; drivers implement them; services orchestrate workflows.
+
+## Principles
+
+- **Separation of concerns** — each layer has one job; don't mix UI, IPC, business logic, or hardware access.
+- **Single responsibility** — one service per domain (AIO, lighting, peripherals), one driver per backend.
+- **DRY** — one IPC entry point on each side: `src/lib/api.ts` (frontend), `state.rs` (backend). Shared types in `src/lib/types.ts` and `domain/models/`.
+- **Dependency direction** — dependencies flow inward. `domain/` never imports Tauri, React, `hidapi`, or `openrgb2`.
+
+## Where code goes
+
+| Layer | Path | Do | Don't |
+| --- | --- | --- | --- |
+| Pages | `src/pages/` | Compose layout, wire hooks | Business logic, direct `invoke()` |
+| Features | `src/features/` | Colocated UI + hooks per feature | Cross-feature shared state |
+| API | `src/lib/api.ts` | Typed `invoke()` wrappers | UI or state management |
+| IPC | `src-tauri/src/state.rs` | Thin command handlers | Hardware calls, complex logic |
+| Services | `src-tauri/src/services/` | Orchestrate drivers, workflows | Protocol details, UI types |
+| Domain | `src-tauri/src/domain/` | Types, traits, errors | I/O, subprocess, HID |
+| Drivers | `src-tauri/src/drivers/` | Backend-specific I/O | Cross-backend workflows |
+
+## Frontend
+
+```tsx
+// ❌ BAD — invoke in a page
+await invoke('lcd_set_image', { path });
+
+// ✅ GOOD — use api wrapper
+await api.lcdSetImage(path);
+```
+
+- Extract reusable fetch/poll logic into `src/hooks/` (e.g. `usePolling`, `useDevices`).
+- Use `src/components/ui/primitives.tsx` for shared UI; keep pages readable.
+- Mirror Rust domain types in `src/lib/types.ts` — don't invent parallel frontend types.
+
+## Rust
+
+```rust
+// ❌ BAD — driver logic in a Tauri command
+#[tauri::command]
+async fn set_pump(...) { LiquidctlDriver::run_cli(...).await }
+
+// ✅ GOOD — command delegates to service
+state.aio.set_pump_duty(duty).await.map_err(|e| e.to_string())
+```
+
+- Services take `Arc<dyn Trait>` — depend on interfaces, not concrete drivers.
+- Drivers implement traits from `domain/traits/`; keep protocol/CLI details inside the driver.
+- Return `domain::error::Result<T>` in services/drivers; map to `String` only at the IPC boundary.
+
+## Adding a feature
+
+Follow this order — don't skip layers:
+
+1. Domain model/trait in `domain/`
+2. Driver adapter in `drivers/`
+3. Service method in `services/`
+4. Tauri command in `state.rs`
+5. Typed wrapper in `src/lib/api.ts`
+
+Keep diffs minimal. Match surrounding naming, error handling, and Tailwind patterns. Comments only for non-obvious protocol or hardware behavior.

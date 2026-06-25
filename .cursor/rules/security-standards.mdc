@@ -1,0 +1,60 @@
+---
+description: Security standards for Glowmint (IPC, subprocesses, paths, privileges)
+alwaysApply: true
+---
+
+# Security Standards
+
+Glowmint is a local hardware-control app. The main trust boundary is **Tauri IPC** (untrusted frontend → privileged Rust backend). Treat every command argument as hostile.
+
+## IPC & Tauri
+
+- All backend access goes through typed commands in `state.rs` + `src/lib/api.ts` — never add ad-hoc `invoke()` from UI.
+- Validate and bound inputs in **services/domain** before drivers run (duty 0–100, fan curve 2–7 points, enum presets, numeric indices).
+- Map errors to `String` at the IPC boundary; don't leak stack traces, file paths, or subprocess stderr verbatim to the UI unless user-facing and safe.
+- Keep Tauri capabilities minimal (`capabilities/default.json`). Add permissions only when needed; don't enable shell or broad filesystem scopes.
+
+## Subprocesses
+
+Glowmint shells out to `liquidctl`, `openrgb`, `lsusb`, and `pkexec`. These are high-risk paths.
+
+```rust
+// ❌ BAD — user input in shell or args
+Command::new("sh").arg("-c").arg(&user_cmd);
+Command::new("liquidctl").arg(&user_string);
+
+// ✅ GOOD — fixed binary, allowlisted args
+Command::new("liquidctl").args(["set", "pump", "speed", &duty.to_string()]);
+```
+
+- Never use `sh -c` with dynamic input. Use `Command::new("binary").args([...])` only.
+- Setup `fix_command` strings are **display/copy only** — the app must not execute arbitrary commands from the frontend or report payload.
+- Privileged ops use **pkexec** with a fixed script and embedded udev content (`include_str!`), not `sudo` or user-supplied commands.
+
+## Paths & files
+
+- LCD images/GIFs: paths come from the Tauri file dialog; verify the file exists and is a decodable image before sending to HID. Consider size limits on GIF decode to avoid DoS.
+- Profile names and device IDs must not contain `..`, `/`, or `\`. Resolve paths under a known root — never join raw user strings into filesystem paths.
+
+```rust
+// ❌ BAD — path traversal via profile name or ckb:../../etc
+self.root.join(format!("{name}.json"));
+PathBuf::from("/dev/input").join(device_id.trim_start_matches("ckb:"));
+
+// ✅ GOOD — validate ID/name, match against discovered devices
+if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') { ... }
+```
+
+- Read/write only under `dirs::config_dir()/glowmint/` for app data. udev rules install to the fixed path in `setup_service.rs`.
+
+## Network & hardware
+
+- OpenRGB connects to **localhost only** — don't add configurable remote hosts driven by user/profile input.
+- HID/USB access is scoped to known Corsair VID/PIDs (`0x1b1c` + allowlisted product IDs). Don't open arbitrary VID/PID from IPC args.
+- ckb-next commands go only to resolved `/dev/input/ckb*` paths from device discovery, not free-form paths from the UI.
+
+## General
+
+- No secrets, tokens, or credentials in source or profiles. Config is local JSON only.
+- Prefer least privilege: udev rules grant device access; avoid running the whole app as root.
+- When adding a new Tauri command, ask: *What happens if this argument is malformed, huge, or a path?*
