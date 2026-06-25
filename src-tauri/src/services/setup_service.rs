@@ -1,27 +1,63 @@
 use std::fs;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use hidapi::HidApi;
 
 use crate::domain::error::{GlowmintError, Result};
 use crate::domain::models::setup::{
-    AppConfig, CheckSeverity, CheckStatus, SetupCheck, SetupReport, SetupStatus,
+    AppConfig, CheckSeverity, CheckStatus, InstallPackagesResult, SetupCheck, SetupEnvironment,
+    SetupReport, SetupStatus,
 };
 use crate::drivers::corsair_lcd::device::{CORSAIR_VID, LCD_PID_ALT, LCD_PID_ELITE};
 use crate::drivers::liquidctl;
 use crate::drivers::openrgb;
 use crate::drivers::setup_probe::{
-    ckb_next_daemon_running, command_exists, has_aio_hardware, has_lcd_hardware,
-    udev_rules_installed, UDEV_RULES_PATH,
+    ckb_next_daemon_running, command_exists, detect_environment, has_aio_hardware, has_lcd_hardware,
+    udev_rules_installed, DetectedEnvironment, PackageManager, UDEV_RULES_PATH,
 };
 use crate::drivers::usb;
 use crate::stores::ConfigStore;
 
 const UDEV_RULES_CONTENT: &str = include_str!("../../udev/99-glowmint-corsair.rules");
 
-pub const INSTALL_PACKAGES_CMD: &str = "sudo apt install openrgb liquidctl ckb-next";
+pub const OPENRGB_PPA: &str = "ppa:thopiekar/openrgb";
+pub const OPENRGB_RELEASE_TAG: &str = "release_candidate_1.0rc2";
+pub const OPENRGB_DEB_COMMIT: &str = "0fca93e";
+pub const INSTALL_PACKAGES_CMD: &str =
+    "sudo apt update && sudo apt install -y liquidctl ckb-next\n# OpenRGB: use Install in System checks (downloads official .deb)";
 pub const CKB_NEXT_SERVICE_CMD: &str = "sudo systemctl enable --now ckb-next-daemon";
 pub const OPENRGB_SERVER_CMD: &str = "openrgb --startminimized --server";
+
+const INSTALL_PACKAGES_SCRIPT_TEMPLATE: &str = r#"
+export DEBIAN_FRONTEND=noninteractive
+set -e
+apt-get update
+apt-get install -y liquidctl ckb-next
+set +e
+if ! command -v openrgb >/dev/null 2>&1; then
+  if apt-cache show openrgb >/dev/null 2>&1; then
+    apt-get install -y openrgb || true
+  fi
+fi
+if ! command -v openrgb >/dev/null 2>&1; then
+  echo "Installing OpenRGB from official release .deb..."
+  apt-get install -y curl ca-certificates
+  DEB="/tmp/glowmint-openrgb.deb"
+  curl -fsSL -o "$DEB" "__OPENRGB_DEB_URL__"
+  dpkg -i "$DEB" || apt-get install -f -y
+  rm -f "$DEB"
+fi
+echo ""
+echo "=== Glowmint install summary ==="
+for bin in liquidctl ckb-next openrgb; do
+  if command -v "$bin" >/dev/null 2>&1; then
+    echo "$bin: installed"
+  else
+    echo "$bin: not installed"
+  fi
+done
+command -v liquidctl >/dev/null 2>&1 && command -v ckb-next >/dev/null 2>&1 && command -v openrgb >/dev/null 2>&1
+"#;
 
 pub struct SetupService {
     config: ConfigStore,
@@ -33,6 +69,10 @@ impl SetupService {
     }
 
     pub async fn run_checks(&self) -> Result<SetupReport> {
+        let env = detect_environment();
+        let install_cmd = install_packages_command(env.package_manager);
+        let ckb_service_cmd = ckb_next_service_command(env.package_manager);
+
         let corsair_devices = usb::list_corsair_usb_devices().unwrap_or_default();
         let product_ids: Vec<u16> = corsair_devices.iter().map(|d| d.product_id).collect();
         let has_lcd = has_lcd_hardware(&product_ids);
@@ -99,8 +139,8 @@ impl SetupService {
             } else {
                 "liquidctl not found — required for Commander Core cooling".into()
             },
-            fix_command: Some(INSTALL_PACKAGES_CMD.into()),
-            can_auto_fix: false,
+            fix_command: Some(install_cmd.clone()),
+            can_auto_fix: package_check_can_auto_fix(!liquidctl_ok, &env),
         });
 
         let openrgb_bin = command_exists("openrgb");
@@ -116,10 +156,10 @@ impl SetupService {
             message: if openrgb_bin {
                 "OpenRGB is installed".into()
             } else {
-                "OpenRGB not found — install for RGB control".into()
+                openrgb_missing_message(env.package_manager)
             },
-            fix_command: Some(INSTALL_PACKAGES_CMD.into()),
-            can_auto_fix: false,
+            fix_command: Some(install_cmd.clone()),
+            can_auto_fix: package_check_can_auto_fix(!openrgb_bin, &env),
         });
 
         let openrgb_srv = openrgb::is_available().await;
@@ -144,6 +184,7 @@ impl SetupService {
         });
 
         let ckb_ok = ckb_next_daemon_running();
+        let ckb_installed = command_exists("ckb-next");
         checks.push(SetupCheck {
             id: "ckb_next_daemon".into(),
             label: "ckb-next daemon (keyboards/mice)".into(),
@@ -158,8 +199,8 @@ impl SetupService {
             } else {
                 "ckb-next daemon not detected at /dev/input/ckb0".into()
             },
-            fix_command: Some(CKB_NEXT_SERVICE_CMD.into()),
-            can_auto_fix: false,
+            fix_command: Some(ckb_service_cmd.clone()),
+            can_auto_fix: !ckb_ok && ckb_installed && env.supports_systemd_auto_start(),
         });
 
         let udev_ok = udev_rules_installed();
@@ -184,7 +225,7 @@ impl SetupService {
                 "Glowmint udev rules not installed — required for Elite LCD access".into()
             },
             fix_command: None,
-            can_auto_fix: true,
+            can_auto_fix: !udev_ok && env.has_pkexec,
         });
 
         let lcd_access = lcd_device_accessible();
@@ -226,8 +267,9 @@ impl SetupService {
             has_lcd_hardware: has_lcd,
             has_aio_hardware: has_aio,
             all_required_pass,
-            install_packages_command: INSTALL_PACKAGES_CMD.into(),
-            ckb_next_service_command: CKB_NEXT_SERVICE_CMD.into(),
+            platform: setup_environment_from_detected(&env),
+            install_packages_command: install_cmd,
+            ckb_next_service_command: ckb_service_cmd,
             openrgb_server_command: OPENRGB_SERVER_CMD.into(),
         })
     }
@@ -301,6 +343,214 @@ impl SetupService {
 
         Ok(())
     }
+
+    pub fn install_packages(&self) -> Result<InstallPackagesResult> {
+        let env = detect_environment();
+        if !env.supports_apt_auto_install() {
+            return Err(GlowmintError::Other(
+                "Auto-install is only supported on Debian/Ubuntu/Mint with polkit (pkexec)".into(),
+            ));
+        }
+
+        let openrgb_url = openrgb_official_deb_url()?;
+        verify_openrgb_deb_url(&openrgb_url)?;
+        let script = build_install_packages_script(&openrgb_url);
+
+        let output = Command::new("pkexec")
+            .args(["sh", "-c", &script])
+            .output()
+            .map_err(|e| GlowmintError::Other(format!("pkexec failed: {e}")))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let log = format!("{stdout}\n{stderr}").trim().to_string();
+        let summary = parse_install_summary(&log, output.status.success());
+
+        Ok(InstallPackagesResult {
+            success: output.status.success(),
+            summary,
+            log,
+        })
+    }
+
+    pub fn start_ckb_next_daemon(&self) -> Result<()> {
+        if !command_exists("ckb-next") {
+            return Err(GlowmintError::Other(
+                "ckb-next is not installed — install packages first".into(),
+            ));
+        }
+
+        run_pkexec(&["systemctl", "enable", "--now", "ckb-next-daemon"]).map_err(|_| {
+            GlowmintError::Other("ckb-next daemon start was cancelled or failed".into())
+        })
+    }
+}
+
+fn setup_environment_from_detected(env: &DetectedEnvironment) -> SetupEnvironment {
+    SetupEnvironment {
+        distro_label: env.distro_label.clone(),
+        package_manager: env.package_manager.as_str().into(),
+        supports_apt_auto_install: env.supports_apt_auto_install(),
+        supports_systemd_auto_start: env.supports_systemd_auto_start(),
+    }
+}
+
+fn package_check_can_auto_fix(binary_missing: bool, env: &DetectedEnvironment) -> bool {
+    binary_missing && env.supports_apt_auto_install()
+}
+
+fn install_packages_command(pm: PackageManager) -> String {
+    match pm {
+        PackageManager::Apt => INSTALL_PACKAGES_CMD.into(),
+        PackageManager::Dnf => {
+            "sudo dnf install liquidctl ckb-next\n# OpenRGB: see https://openrgb.org (COPR or Flatpak)"
+                .into()
+        }
+        PackageManager::Pacman => {
+            "sudo pacman -S liquidctl\n# OpenRGB and ckb-next: often from AUR (yay -S openrgb ckb-next)"
+                .into()
+        }
+        PackageManager::Unknown => "# Install from upstream:\n# liquidctl: https://github.com/liquidctl/liquidctl\n# OpenRGB: https://openrgb.org\n# ckb-next: https://github.com/ckb-next/ckb-next".into(),
+    }
+}
+
+fn ckb_next_service_command(pm: PackageManager) -> String {
+    match pm {
+        PackageManager::Apt | PackageManager::Dnf | PackageManager::Pacman => {
+            CKB_NEXT_SERVICE_CMD.into()
+        }
+        PackageManager::Unknown => {
+            "sudo systemctl enable --now ckb-next-daemon  # if using systemd".into()
+        }
+    }
+}
+
+fn openrgb_missing_message(pm: PackageManager) -> String {
+    match pm {
+        PackageManager::Apt => {
+            "OpenRGB not found — Install downloads the official .deb from Codeberg when apt has no package"
+                .into()
+        }
+        PackageManager::Dnf => {
+            "OpenRGB not found — install via COPR or Flatpak; see https://openrgb.org".into()
+        }
+        PackageManager::Pacman => {
+            "OpenRGB not found — often available from AUR (e.g. yay -S openrgb)".into()
+        }
+        PackageManager::Unknown => "OpenRGB not found — install from https://openrgb.org".into(),
+    }
+}
+
+fn openrgb_official_deb_url() -> Result<String> {
+    let arch = Command::new("dpkg")
+        .args(["--print-architecture"])
+        .output()
+        .map_err(|e| GlowmintError::Other(format!("dpkg failed: {e}")))?;
+
+    if !arch.status.success() {
+        return Err(GlowmintError::Other(
+            "could not detect CPU architecture for OpenRGB package".into(),
+        ));
+    }
+
+    let deb_arch = match String::from_utf8_lossy(&arch.stdout)
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "amd64" => "amd64_bookworm",
+        "arm64" => "arm64_bookworm",
+        "armhf" => "armhf_bookworm",
+        "i386" => "i386_bookworm",
+        other => {
+            return Err(GlowmintError::Other(format!(
+                "unsupported architecture for OpenRGB auto-install: {other}"
+            )));
+        }
+    };
+
+    Ok(format!(
+        "https://codeberg.org/OpenRGB/OpenRGB/releases/download/{OPENRGB_RELEASE_TAG}/openrgb_1.0rc2_{deb_arch}_{OPENRGB_DEB_COMMIT}.deb"
+    ))
+}
+
+fn verify_openrgb_deb_url(url: &str) -> Result<()> {
+    const PREFIX: &str = "https://codeberg.org/OpenRGB/OpenRGB/releases/download/";
+    if !url.starts_with(PREFIX) || !url.ends_with(".deb") {
+        return Err(GlowmintError::Other(
+            "internal error: invalid OpenRGB download URL".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn build_install_packages_script(openrgb_deb_url: &str) -> String {
+    INSTALL_PACKAGES_SCRIPT_TEMPLATE.replace("__OPENRGB_DEB_URL__", openrgb_deb_url)
+}
+
+fn parse_install_summary(log: &str, success: bool) -> String {
+    if let Some(start) = log.find("=== Glowmint install summary ===") {
+        let summary = log[start..].trim().to_string();
+        if success {
+            format!("{summary}\n\nChecks updated — review pass/fail below.")
+        } else {
+            format!("Install did not complete successfully.\n\n{summary}")
+        }
+    } else if log.contains("Request dismissed") {
+        "Authentication prompt was dismissed — nothing was installed.".into()
+    } else if log.is_empty() {
+        if success {
+            "Install finished — hit Re-check to refresh status.".into()
+        } else {
+            "Install failed with no output — try copying the command into a terminal.".into()
+        }
+    } else {
+        format!(
+            "{}\n\n{}",
+            if success {
+                "Install finished."
+            } else {
+                "Install failed."
+            },
+            truncate_log(log, 800)
+        )
+    }
+}
+
+fn truncate_log(log: &str, max: usize) -> String {
+    if log.len() <= max {
+        log.to_string()
+    } else {
+        format!("…{}", &log[log.len().saturating_sub(max)..])
+    }
+}
+
+fn run_pkexec(args: &[&str]) -> Result<()> {
+    let output = Command::new("pkexec")
+        .args(args)
+        .output()
+        .map_err(|e| GlowmintError::Other(format!("pkexec failed: {e}")))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(GlowmintError::Other(pkexec_failure_message(&output)))
+    }
+}
+
+fn pkexec_failure_message(output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("Request dismissed") {
+        return "Authentication prompt was dismissed".into();
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let combined = format!("{stdout}\n{stderr}").trim().to_string();
+    if combined.is_empty() {
+        "Privileged operation was cancelled or failed".into()
+    } else {
+        combined
+    }
 }
 
 fn lcd_device_accessible() -> bool {
@@ -358,10 +608,65 @@ mod tests {
             has_lcd_hardware: true,
             has_aio_hardware: false,
             all_required_pass: all_pass,
+            platform: SetupEnvironment {
+                distro_label: "Linux Mint".into(),
+                package_manager: "apt".into(),
+                supports_apt_auto_install: true,
+                supports_systemd_auto_start: true,
+            },
             install_packages_command: String::new(),
             ckb_next_service_command: String::new(),
             openrgb_server_command: String::new(),
         }
+    }
+
+    #[test]
+    fn package_check_can_auto_fix_false_on_unknown_package_manager() {
+        let env = DetectedEnvironment {
+            distro_label: "Unknown".into(),
+            package_manager: PackageManager::Unknown,
+            has_pkexec: true,
+            has_systemd: true,
+        };
+        assert!(!package_check_can_auto_fix(true, &env));
+    }
+
+    #[test]
+    fn package_check_can_auto_fix_true_on_apt_with_pkexec() {
+        let env = DetectedEnvironment {
+            distro_label: "Linux Mint".into(),
+            package_manager: PackageManager::Apt,
+            has_pkexec: true,
+            has_systemd: true,
+        };
+        assert!(package_check_can_auto_fix(true, &env));
+    }
+
+    #[test]
+    fn parse_install_summary_extracts_summary_block() {
+        let log = "apt output\n\n=== Glowmint install summary ===\nliquidctl: installed\nopenrgb: not installed";
+        let summary = parse_install_summary(log, true);
+        assert!(summary.contains("liquidctl: installed"));
+        assert!(summary.contains("Checks updated"));
+    }
+
+    #[test]
+    fn parse_install_summary_handles_dismissed_prompt() {
+        let summary = parse_install_summary("Error executing command: Request dismissed", false);
+        assert!(summary.contains("dismissed"));
+    }
+
+    #[test]
+    fn verify_openrgb_deb_url_rejects_untrusted_host() {
+        assert!(verify_openrgb_deb_url("https://evil.example/openrgb.deb").is_err());
+    }
+
+    #[test]
+    fn build_install_packages_script_injects_deb_url() {
+        let url = "https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_candidate_1.0rc2/openrgb_1.0rc2_amd64_bookworm_0fca93e.deb";
+        let script = build_install_packages_script(url);
+        assert!(script.contains(url));
+        assert!(!script.contains("__OPENRGB_DEB_URL__"));
     }
 
     #[test]

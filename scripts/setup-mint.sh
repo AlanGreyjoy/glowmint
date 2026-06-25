@@ -9,7 +9,19 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
 fi
 
 apt-get update
-apt-get install -y openrgb liquidctl ckb-next libhidapi-dev pkg-config
+apt-get install -y liquidctl ckb-next curl ca-certificates
+if ! command -v openrgb >/dev/null 2>&1; then
+  if apt-cache show openrgb >/dev/null 2>&1; then
+    apt-get install -y openrgb || true
+  fi
+fi
+if ! command -v openrgb >/dev/null 2>&1; then
+  DEB="/tmp/glowmint-openrgb.deb"
+  curl -fsSL -o "$DEB" "https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_candidate_1.0rc2/openrgb_1.0rc2_amd64_bookworm_0fca93e.deb"
+  dpkg -i "$DEB" || apt-get install -f -y
+  rm -f "$DEB"
+fi
+apt-get install -y libhidapi-dev pkg-config
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

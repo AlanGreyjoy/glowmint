@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Button, ColorInput, Group, Paper, Select, Stack, Text, Title } from '@mantine/core';
+import { Button, ColorInput, Group, Select, Stack, Text } from '@mantine/core';
 
+import { EmptyState, PageHeader, SectionCard } from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
 import type { LightingMode, RgbDevice } from '../lib/types';
@@ -55,12 +56,7 @@ export function LightingPage() {
 
   return (
     <Stack gap="lg">
-      <div>
-        <Title order={2}>Lighting</Title>
-        <Text size="sm" c="dimmed">
-          RGB control via OpenRGB
-        </Text>
-      </div>
+      <PageHeader title="Lighting" description="RGB control via OpenRGB" />
 
       {message ? (
         <Text size="sm" c="cyan.2">
@@ -68,14 +64,9 @@ export function LightingPage() {
         </Text>
       ) : null}
 
-      <Paper p="md" withBorder>
-        <Title order={4} mb="md">
-          RGB Devices
-        </Title>
+      <SectionCard title="RGB Devices">
         {devices.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            No OpenRGB devices found. Start OpenRGB with SDK server enabled.
-          </Text>
+          <EmptyState message="No OpenRGB devices found. Start OpenRGB with SDK server enabled." />
         ) : (
           <Stack gap="md">
             <Select
@@ -128,7 +119,7 @@ export function LightingPage() {
             </Group>
           </Stack>
         )}
-      </Paper>
+      </SectionCard>
     </Stack>
   );
 }

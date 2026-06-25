@@ -31,12 +31,28 @@ pub struct SetupCheck {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallPackagesResult {
+    pub success: bool,
+    pub summary: String,
+    pub log: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupEnvironment {
+    pub distro_label: String,
+    pub package_manager: String,
+    pub supports_apt_auto_install: bool,
+    pub supports_systemd_auto_start: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetupReport {
     pub checks: Vec<SetupCheck>,
     pub corsair_devices: Vec<UsbDeviceInfo>,
     pub has_lcd_hardware: bool,
     pub has_aio_hardware: bool,
     pub all_required_pass: bool,
+    pub platform: SetupEnvironment,
     pub install_packages_command: String,
     pub ckb_next_service_command: String,
     pub openrgb_server_command: String,

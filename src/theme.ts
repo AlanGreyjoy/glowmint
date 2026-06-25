@@ -3,7 +3,7 @@ import { createTheme } from '@mantine/core';
 export const theme = createTheme({
   primaryColor: 'cyan',
   fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-  defaultRadius: 'md',
+  defaultRadius: 'lg',
   colors: {
     dark: [
       '#C1C2C5',
@@ -17,5 +17,12 @@ export const theme = createTheme({
       '#141517',
       '#0f1117',
     ],
+  },
+  other: {
+    glowmint: {
+      glassPanelBg: 'var(--glowmint-glass-panel-bg)',
+      glassInsetBg: 'var(--glowmint-glass-inset-bg)',
+      glassBarBg: 'var(--glowmint-glass-bar-bg)',
+    },
   },
 });

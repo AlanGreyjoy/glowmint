@@ -300,3 +300,18 @@ pub fn start_openrgb_server(state: tauri::State<'_, AppState>) -> Result<(), Str
         .start_openrgb_server()
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn install_packages(
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::domain::models::setup::InstallPackagesResult, String> {
+    state.setup.install_packages().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn start_ckb_next_daemon(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state
+        .setup
+        .start_ckb_next_daemon()
+        .map_err(|e| e.to_string())
+}

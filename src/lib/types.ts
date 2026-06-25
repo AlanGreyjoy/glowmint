@@ -111,12 +111,26 @@ export interface SetupCheck {
   can_auto_fix: boolean;
 }
 
+export interface InstallPackagesResult {
+  success: boolean;
+  summary: string;
+  log: string;
+}
+
+export interface SetupEnvironment {
+  distro_label: string;
+  package_manager: 'apt' | 'dnf' | 'pacman' | 'unknown';
+  supports_apt_auto_install: boolean;
+  supports_systemd_auto_start: boolean;
+}
+
 export interface SetupReport {
   checks: SetupCheck[];
   corsair_devices: UsbDeviceInfo[];
   has_lcd_hardware: boolean;
   has_aio_hardware: boolean;
   all_required_pass: boolean;
+  platform: SetupEnvironment;
   install_packages_command: string;
   ckb_next_service_command: string;
   openrgb_server_command: string;

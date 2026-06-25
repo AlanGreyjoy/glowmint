@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Group, Stack, Text, Title } from '@mantine/core';
+import { Box, Button, Group, Stack, Text } from '@mantine/core';
 
+import { EmptyState, GlassSurface, PageHeader } from '../components/ui';
 import { SetupChecklist } from '../features/setup/SetupChecklist';
 import { api } from '../lib/api';
 import type { SetupReport } from '../lib/types';
@@ -50,40 +51,32 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
 
   return (
     <Stack mih="100vh" gap={0}>
-      <div style={{ borderBottom: '1px solid var(--mantine-color-dark-4)', padding: '16px 24px' }}>
-        <Title order={2} c="cyan.3">
-          Welcome to Glowmint
-        </Title>
-        <Text size="sm" c="dimmed">
-          Let&apos;s get your Corsair gear working on Linux — we&apos;ll check what&apos;s installed
-          and what still needs setup.
-        </Text>
-      </div>
+      <Box px="lg" py="md">
+        <PageHeader
+          title="Welcome to Glowmint"
+          description="Let's get your Corsair gear working on Linux — we'll check what's installed and what still needs setup."
+        />
+      </Box>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ maxWidth: 768, margin: '0 auto' }}>
+      <Box flex={1} p="lg" style={{ overflow: 'auto' }}>
+        <Box maw={1100} mx="auto">
           {report ? (
             <SetupChecklist
               report={report}
               message={message}
-              onRefresh={() => void refresh()}
+              onRefresh={refresh}
               onMessage={setMessage}
               refreshing={refreshing}
+              layout="grid"
+              showRefreshButton={false}
             />
           ) : (
-            <Text size="sm" c="dimmed">
-              Running system checks…
-            </Text>
+            <EmptyState message="" loading loadingMessage="Running system checks…" />
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      <div
-        style={{
-          borderTop: '1px solid var(--mantine-color-dark-4)',
-          padding: '16px 24px',
-        }}
-      >
+      <GlassSurface variant="bar" className="glowmint-glass-footer" p="md" px="lg" radius={0}>
         <Group justify="space-between">
           <Button variant="light" onClick={() => void handleSkip()}>
             Skip for now
@@ -102,7 +95,7 @@ export function WelcomePage({ onComplete }: WelcomePageProps) {
             Fix required items above, or skip to explore the app with limited functionality.
           </Text>
         ) : null}
-      </div>
+      </GlassSurface>
     </Stack>
   );
 }

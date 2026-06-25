@@ -1,0 +1,62 @@
+---
+description: Reusable UI component library — strict re-use or create
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# Component Library
+
+All shared frontend UI lives in `src/components/ui/`. Follow a **strict re-use or create** policy: never duplicate UI patterns inline when a component exists or should exist.
+
+## Re-use or create (required)
+
+Before adding UI in a page or feature:
+
+1. **Search** `src/components/ui/` for an existing component.
+2. **Re-use** it if it fits (extend via props; don't copy markup).
+3. **Create** in `src/components/ui/` if missing and the pattern is generic or used in 2+ places.
+4. **Keep inline** only for one-off, page-specific layout with no reuse value.
+
+```tsx
+// ❌ BAD — duplicate status badge markup in a page
+<Badge color={statusBadgeColor(device.status)}>{device.status}</Badge>
+
+// ✅ GOOD — re-use shared component
+import { StatusBadge } from '../components/ui/StatusBadge';
+<StatusBadge status={device.status} />
+```
+
+```tsx
+// ❌ BAD — new Paper + Title section header copied from another page
+<Paper p="md" withBorder>
+  <Title order={4} mb="md">Devices</Title>
+  ...
+</Paper>
+
+// ✅ GOOD — extract once, use everywhere
+import { SectionCard } from '../components/ui/SectionCard';
+<SectionCard title="Devices">...</SectionCard>
+```
+
+## Where UI goes
+
+| Location | Purpose | Example |
+| --- | --- | --- |
+| `src/components/ui/` | Reusable primitives & patterns | `StatusBadge`, `SectionCard`, `EmptyState` |
+| `src/components/` | App shell & global layout only | `AppShell.tsx` |
+| `src/features/<name>/` | Feature-specific composed UI | `SetupChecklist`, hardware panels |
+| `src/pages/` | Route composition — wire hooks, layout | No reusable widgets |
+
+## Component rules
+
+- **One component per file** in `src/components/ui/` (PascalCase filename matching export).
+- **Export from** `src/components/ui/index.ts` for public API.
+- **Wrap Mantine** (`@mantine/core`) inside ui components — pages/features import from `components/ui`, not Mantine directly, unless no wrapper exists yet (then create one).
+- **Props over variants** — prefer typed props; use Mantine `variant`/`color` props consistently with the theme in `src/theme.ts`.
+- **No business logic** — ui components receive data/callbacks; no `invoke()`, no API calls.
+
+## Creating a new ui component
+
+1. Add `src/components/ui/MyComponent.tsx`.
+2. Export from `src/components/ui/index.ts`.
+3. Replace inline usages in pages/features with the new import.

@@ -37,7 +37,7 @@ await api.lcdSetImage(path);
 ```
 
 - Extract reusable fetch/poll logic into `src/hooks/` (e.g. `usePolling`, `useDevices`).
-- Use `src/components/ui/primitives.tsx` for shared UI; keep pages readable.
+- Put all shared UI in `src/components/ui/` — strict re-use or create (see `component-library` rule).
 - Mirror Rust domain types in `src/lib/types.ts` — don't invent parallel frontend types.
 
 ## Rust

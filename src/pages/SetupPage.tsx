@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Button, Group, Stack, Text, TextInput } from '@mantine/core';
 
+import { EmptyState, ListItemCard, PageHeader, SectionCard } from '../components/ui';
 import { SetupChecklist } from '../features/setup/SetupChecklist';
 import { api } from '../lib/api';
 import type { Profile, SetupReport } from '../lib/types';
@@ -57,38 +58,31 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-end">
-        <div>
-          <Title order={2}>Setup</Title>
-          <Text size="sm" c="dimmed">
-            System checks, permissions, and profiles
-          </Text>
-        </div>
-        {onRerunWizard ? (
-          <Button variant="light" onClick={onRerunWizard}>
-            Run setup wizard again
-          </Button>
-        ) : null}
-      </Group>
+      <PageHeader
+        title="Setup"
+        description="System checks, permissions, and profiles"
+        actions={
+          onRerunWizard ? (
+            <Button variant="light" onClick={onRerunWizard}>
+              Run setup wizard again
+            </Button>
+          ) : undefined
+        }
+      />
 
       {report ? (
         <SetupChecklist
           report={report}
           message={message}
-          onRefresh={() => void refreshChecks()}
+          onRefresh={refreshChecks}
           onMessage={setMessage}
           refreshing={refreshing}
         />
       ) : (
-        <Text size="sm" c="dimmed">
-          Loading setup checks…
-        </Text>
+        <EmptyState message="" loading loadingMessage="Loading setup checks…" />
       )}
 
-      <Paper p="md" withBorder>
-        <Title order={4} mb="md">
-          Profiles
-        </Title>
+      <SectionCard title="Profiles">
         <Group mb="md">
           <TextInput
             flex={1}
@@ -99,37 +93,31 @@ export function SetupPage({ onRerunWizard }: SetupPageProps) {
           <Button onClick={() => void saveProfile()}>Save</Button>
         </Group>
         {profiles.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            No profiles saved yet.
-          </Text>
+          <EmptyState message="No profiles saved yet." />
         ) : (
           <Stack gap="xs">
             {profiles.map((name) => (
-              <Group
-                key={name}
-                justify="space-between"
-                p="xs"
-                bg="dark.8"
-                style={{ borderRadius: 8 }}
-              >
-                <Text size="sm">{name}</Text>
-                <Button
-                  variant="light"
-                  size="compact-sm"
-                  onClick={() =>
-                    void api
-                      .loadProfile(name)
-                      .then(() => setMessage(`Loaded profile ${name}`))
-                      .catch((err) => setMessage(String(err)))
-                  }
-                >
-                  Load
-                </Button>
-              </Group>
+              <ListItemCard key={name} padding="xs">
+                <Group justify="space-between">
+                  <Text size="sm">{name}</Text>
+                  <Button
+                    variant="light"
+                    size="compact-sm"
+                    onClick={() =>
+                      void api
+                        .loadProfile(name)
+                        .then(() => setMessage(`Loaded profile ${name}`))
+                        .catch((err) => setMessage(String(err)))
+                    }
+                  >
+                    Load
+                  </Button>
+                </Group>
+              </ListItemCard>
             ))}
           </Stack>
         )}
-      </Paper>
+      </SectionCard>
     </Stack>
   );
 }

@@ -11,6 +11,7 @@ import type {
   PumpPreset,
   RgbColor,
   RgbDevice,
+  InstallPackagesResult,
   SetupReport,
   SetupStatus,
 } from './types';
@@ -59,4 +60,6 @@ export const api = {
   resetOnboarding: () => invoke<void>('reset_onboarding'),
   installUdevRules: () => invoke<void>('install_udev_rules'),
   startOpenrgbServer: () => invoke<void>('start_openrgb_server'),
+  installPackages: () => invoke<InstallPackagesResult>('install_packages'),
+  startCkbNextDaemon: () => invoke<void>('start_ckb_next_daemon'),
 };

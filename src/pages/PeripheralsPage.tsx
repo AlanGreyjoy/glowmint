@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import {
-  Badge,
-  Button,
-  ColorInput,
-  Group,
-  NumberInput,
-  Paper,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
+import { Button, ColorInput, Group, NumberInput, Stack, Text } from '@mantine/core';
 
+import { EmptyState, ListItemCard, PageHeader, SectionCard, StatusBadge } from '../components/ui';
 import { api } from '../lib/api';
 import { hexToRgb } from '../lib/utils';
 import type { Device } from '../lib/types';
@@ -37,20 +28,18 @@ export function PeripheralsPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-end">
-        <div>
-          <Title order={2}>Peripherals</Title>
-          <Text size="sm" c="dimmed">
-            Keyboards and mice via ckb-next
-          </Text>
-        </div>
-        <Button
-          variant="light"
-          onClick={() => void openUrl('https://github.com/ckb-next/ckb-next')}
-        >
-          Open ckb-next docs
-        </Button>
-      </Group>
+      <PageHeader
+        title="Peripherals"
+        description="Keyboards and mice via ckb-next"
+        actions={
+          <Button
+            variant="light"
+            onClick={() => void openUrl('https://github.com/ckb-next/ckb-next')}
+          >
+            Open ckb-next docs
+          </Button>
+        }
+      />
 
       {message ? (
         <Text size="sm" c="cyan.2">
@@ -58,18 +47,13 @@ export function PeripheralsPage() {
         </Text>
       ) : null}
 
-      <Paper p="md" withBorder>
-        <Title order={4} mb="md">
-          Detected peripherals
-        </Title>
+      <SectionCard title="Detected peripherals">
         {devices.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            No ckb-next devices found. Ensure ckb-next-daemon is running.
-          </Text>
+          <EmptyState message="No ckb-next devices found. Ensure ckb-next-daemon is running." />
         ) : (
           <Stack gap="md">
             {devices.map((device) => (
-              <Paper key={device.id} p="md" withBorder bg="dark.8">
+              <ListItemCard key={device.id} padding="md">
                 <Group justify="space-between" mb="sm">
                   <div>
                     <Text fw={500}>{device.name}</Text>
@@ -77,7 +61,7 @@ export function PeripheralsPage() {
                       {device.id}
                     </Text>
                   </div>
-                  <Badge color="green">{device.kind}</Badge>
+                  <StatusBadge status="available" label={device.kind} />
                 </Group>
                 <Group>
                   <Button
@@ -116,16 +100,13 @@ export function PeripheralsPage() {
                     Profile 1
                   </Button>
                 </Group>
-              </Paper>
+              </ListItemCard>
             ))}
           </Stack>
         )}
-      </Paper>
+      </SectionCard>
 
-      <Paper p="md" withBorder>
-        <Title order={4} mb="md">
-          Controls
-        </Title>
+      <SectionCard title="Controls">
         <Stack gap="md">
           <ColorInput label="RGB color" value={color} onChange={setColor} format="hex" />
           <NumberInput
@@ -137,7 +118,7 @@ export function PeripheralsPage() {
             onChange={(value) => setDpi(typeof value === 'number' ? value : 1600)}
           />
         </Stack>
-      </Paper>
+      </SectionCard>
     </Stack>
   );
 }

@@ -45,6 +45,8 @@ pub fn run() {
             state::reset_onboarding,
             state::install_udev_rules,
             state::start_openrgb_server,
+            state::install_packages,
+            state::start_ckb_next_daemon,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Glowmint");

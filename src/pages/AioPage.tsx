@@ -8,14 +8,13 @@ import {
   Checkbox,
   Group,
   NumberInput,
-  Paper,
   SimpleGrid,
   Slider,
   Stack,
   Text,
-  Title,
 } from '@mantine/core';
 
+import { ListItemCard, PageHeader, SectionCard } from '../components/ui';
 import { api } from '../lib/api';
 import { usePolling } from '../hooks/usePolling';
 import type { CoolingStatus, LcdStatus } from '../lib/types';
@@ -82,12 +81,10 @@ export function AioPage() {
 
   return (
     <Stack gap="lg">
-      <div>
-        <Title order={2}>AIO / LCD</Title>
-        <Text size="sm" c="dimmed">
-          Elite LCD screen and Commander Core cooling
-        </Text>
-      </div>
+      <PageHeader
+        title="AIO / LCD"
+        description="Elite LCD screen and Commander Core cooling"
+      />
 
       {message ? (
         <Text size="sm" c="cyan.2">
@@ -96,15 +93,16 @@ export function AioPage() {
       ) : null}
 
       <SimpleGrid cols={{ base: 1, lg: 2 }}>
-        <Paper p="md" withBorder>
-          <Title order={4} mb="md">
-            LCD Editor
-          </Title>
+        <SectionCard title="LCD Editor">
           <Group mb="md">
-            <Badge color={lcdStatus?.connected ? 'green' : 'red'}>
+            <Badge variant="light" color={lcdStatus?.connected ? 'green' : 'red'}>
               {lcdStatus?.connected ? 'LCD connected' : 'LCD not found'}
             </Badge>
-            {lcdStatus?.looping ? <Badge color="yellow">GIF looping</Badge> : null}
+            {lcdStatus?.looping ? (
+              <Badge variant="light" color="yellow">
+                GIF looping
+              </Badge>
+            ) : null}
           </Group>
 
           <Box
@@ -114,8 +112,10 @@ export function AioPage() {
             h={280}
             style={{
               borderRadius: '50%',
-              border: '1px solid var(--mantine-color-cyan-5)',
-              background: 'rgba(0, 0, 0, 0.4)',
+              background: 'rgba(0, 0, 0, 0.35)',
+              backdropFilter: 'blur(8px)',
+              boxShadow:
+                '0 0 32px rgba(34, 211, 238, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -160,29 +160,26 @@ export function AioPage() {
               mt="xl"
             />
           </SimpleGrid>
-        </Paper>
+        </SectionCard>
 
-        <Paper p="md" withBorder>
-          <Title order={4} mb="md">
-            Cooling
-          </Title>
+        <SectionCard title="Cooling">
           <SimpleGrid cols={2} mb="md">
-            <Paper p="sm" bg="dark.8">
+            <ListItemCard>
               <Text size="sm" c="dimmed">
                 Water temp
               </Text>
               <Text size="lg" fw={500}>
                 {cooling?.water_temp_c != null ? `${cooling.water_temp_c.toFixed(1)}°C` : '—'}
               </Text>
-            </Paper>
-            <Paper p="sm" bg="dark.8">
+            </ListItemCard>
+            <ListItemCard>
               <Text size="sm" c="dimmed">
                 Pump RPM
               </Text>
               <Text size="lg" fw={500}>
                 {cooling?.pump_speed_rpm ?? '—'}
               </Text>
-            </Paper>
+            </ListItemCard>
           </SimpleGrid>
 
           <Group mb="md">
@@ -224,7 +221,7 @@ export function AioPage() {
             onChange={setFanDuty}
             onChangeEnd={(value) => void api.setFanDuty(1, value).then(() => refreshCooling())}
           />
-        </Paper>
+        </SectionCard>
       </SimpleGrid>
     </Stack>
   );

@@ -9,6 +9,22 @@ Linux-native desktop app for Corsair hardware — an iCUE alternative for Mint a
 
 **Stack:** Tauri 2 (Rust backend) + React 19 + TypeScript + Tailwind CSS + Vite.
 
+## Design
+
+Glowmint’s look is **dark-mode glassmorphism**, inspired by Apple’s **Liquid Glass** (WWDC 2025): translucent layers that float above content, adapt to what’s behind them, and keep the hardware UI feeling fluid and premium — not flat or boxy.
+
+| Concept | What it means | Glowmint |
+| --- | --- | --- |
+| **Glassmorphism** | Frosted-glass UI: semi-transparent surfaces + background blur for depth and hierarchy | `backdrop-filter: blur()` + low-opacity `rgba` tints |
+| **Liquid Glass** | Apple’s adaptive glass material — nav/controls sit in a distinct floating layer; tint and legibility respond to underlying content; fluid, borderless edges | Dark-first; glass for shell, cards, and bars — content stays primary |
+| Translucency | See-through panels, not opaque fills | `--glowmint-glass-*-bg` tokens in `src/index.css` |
+| Layering | Functional glass above a rich canvas (gradients, depth) | `panel` / `inset` / `bar` variants on `GlassSurface` |
+| Borders | Liquid Glass avoids hard strokes; depth from material, not outlines | **No borders** — blur, tint, and subtle inset shadows only |
+
+Use **`GlassSurface`** (`src/components/ui/GlassSurface.tsx`) for cards and panels — never raw `Paper withBorder` or hard-bordered boxes. Theme hooks: `theme.other.glowmint` in `src/theme.ts`.
+
+**Component library.** Follow `.cursor/rules/component-library.mdc`: shared UI in `src/components/ui/` with a strict re-use-or-create policy. Wrap Mantine inside ui components; pages/features import from `components/ui`, not Mantine directly.
+
 ## App areas
 
 | Route | Purpose |
