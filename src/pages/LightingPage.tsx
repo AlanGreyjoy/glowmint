@@ -115,7 +115,7 @@ export function LightingPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title="Lighting" description="RGB control via OpenRGB" />
 
-      {message ? <p className="text-sm text-cyan-200">{message}</p> : null}
+      {message ? <p className="text-sm text-emerald-200">{message}</p> : null}
 
       {setupZones.length > 0 ? (
         <SectionCard title="RGB headers to set up">

@@ -19,9 +19,41 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs = 3000, enab
 
   useEffect(() => {
     if (!enabled) return;
-    void refresh();
-    const id = window.setInterval(() => void refresh(), intervalMs);
-    return () => window.clearInterval(id);
+
+    let intervalId: number | undefined;
+
+    const start = () => {
+      if (intervalId === undefined) {
+        intervalId = window.setInterval(() => void refresh(), intervalMs);
+      }
+    };
+    const stop = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+
+    // Don't poll the backend (HID/subprocess/devnode churn) while the window is hidden.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === 'visible') {
+      void refresh();
+      start();
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stop();
+    };
   }, [enabled, intervalMs, refresh]);
 
   return { data, error, refresh };

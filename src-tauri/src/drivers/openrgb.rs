@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use openrgb2::{Color, OpenRgbClient};
+use tokio::sync::Mutex;
 
 use crate::domain::error::{GlowmintError, Result};
 use crate::domain::models::rgb::{
@@ -7,14 +8,38 @@ use crate::domain::models::rgb::{
 };
 use crate::domain::traits::RgbController;
 
-pub struct OpenRgbDriver;
+/// Run `op` against the cached OpenRGB connection, opening one lazily if needed.
+/// On any error the connection is dropped so the next call reconnects, which keeps
+/// a single long-lived TCP session per driver instead of one handshake per command.
+macro_rules! with_conn {
+    ($self:expr, |$client:ident| $body:expr) => {{
+        let mut guard = $self.conn.lock().await;
+        if guard.is_none() {
+            *guard = Some(Self::connect_client().await?);
+        }
+        let outcome = {
+            let $client = guard.as_ref().unwrap();
+            $body.await
+        };
+        if outcome.is_err() {
+            *guard = None;
+        }
+        outcome
+    }};
+}
+
+pub struct OpenRgbDriver {
+    conn: Mutex<Option<OpenRgbClient>>,
+}
 
 impl OpenRgbDriver {
     pub fn new() -> Self {
-        Self
+        Self {
+            conn: Mutex::new(None),
+        }
     }
 
-    async fn connect() -> Result<OpenRgbClient> {
+    async fn connect_client() -> Result<OpenRgbClient> {
         OpenRgbClient::connect()
             .await
             .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))
@@ -43,30 +68,8 @@ impl OpenRgbDriver {
             .await
             .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))
     }
-}
 
-impl Default for OpenRgbDriver {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub fn zone_is_resizable(leds_min: usize, leds_max: usize) -> bool {
-    leds_max > leds_min
-}
-
-pub fn zone_needs_initialization(resizable: bool, led_count: usize) -> bool {
-    resizable && led_count == 0
-}
-
-#[async_trait]
-impl RgbController for OpenRgbDriver {
-    async fn is_available(&self) -> bool {
-        Self::connect().await.is_ok()
-    }
-
-    async fn list_devices(&self) -> Result<Vec<RgbDevice>> {
-        let client = Self::connect().await?;
+    async fn fetch_devices(client: &OpenRgbClient) -> Result<Vec<RgbDevice>> {
         let group = client
             .get_all_controllers()
             .await
@@ -76,10 +79,7 @@ impl RgbController for OpenRgbDriver {
             .controllers()
             .iter()
             .map(|controller| {
-                let zones = controller
-                    .get_all_zones()
-                    .map(Self::map_zone)
-                    .collect();
+                let zones = controller.get_all_zones().map(Self::map_zone).collect();
                 RgbDevice {
                     index: controller.id(),
                     name: controller.name().to_string(),
@@ -91,13 +91,12 @@ impl RgbController for OpenRgbDriver {
         Ok(devices)
     }
 
-    async fn set_zone_color(
-        &self,
+    async fn apply_zone_color(
+        client: &OpenRgbClient,
         device_index: usize,
         zone_index: usize,
         color: RgbColor,
     ) -> Result<()> {
-        let client = Self::connect().await?;
         let controller = client
             .get_controller(device_index)
             .await
@@ -116,13 +115,12 @@ impl RgbController for OpenRgbDriver {
         Ok(())
     }
 
-    async fn resize_zone(
-        &self,
+    async fn apply_resize_zone(
+        client: &OpenRgbClient,
         device_index: usize,
         zone_index: usize,
         led_count: usize,
     ) -> Result<()> {
-        let client = Self::connect().await?;
         let controller = client
             .get_controller(device_index)
             .await
@@ -149,8 +147,7 @@ impl RgbController for OpenRgbDriver {
             )));
         }
 
-        zone
-            .resize(led_count)
+        zone.resize(led_count)
             .await
             .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
 
@@ -163,12 +160,14 @@ impl RgbController for OpenRgbDriver {
             .await
             .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
 
-        Self::save_sizes_profile(&client).await?;
-        Ok(())
+        Self::save_sizes_profile(client).await
     }
 
-    async fn set_device_mode(&self, device_index: usize, mode: LightingMode) -> Result<()> {
-        let client = Self::connect().await?;
+    async fn apply_device_mode(
+        client: &OpenRgbClient,
+        device_index: usize,
+        mode: LightingMode,
+    ) -> Result<()> {
         let controller = client
             .get_controller(device_index)
             .await
@@ -195,22 +194,102 @@ impl RgbController for OpenRgbDriver {
         Ok(())
     }
 
-    async fn save_profile(&self, name: &str) -> Result<()> {
-        let client = Self::connect().await?;
+    async fn do_save_profile(client: &OpenRgbClient, name: &str) -> Result<()> {
         client
             .save_profile(name)
             .await
-            .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
-        Ok(())
+            .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))
     }
 
-    async fn load_profile(&self, name: &str) -> Result<()> {
-        let client = Self::connect().await?;
+    async fn do_load_profile(client: &OpenRgbClient, name: &str) -> Result<()> {
         client
             .load_profile(name)
             .await
-            .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
-        Ok(())
+            .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))
+    }
+}
+
+impl Default for OpenRgbDriver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn zone_is_resizable(leds_min: usize, leds_max: usize) -> bool {
+    leds_max > leds_min
+}
+
+pub fn zone_needs_initialization(resizable: bool, led_count: usize) -> bool {
+    resizable && led_count == 0
+}
+
+#[async_trait]
+impl RgbController for OpenRgbDriver {
+    async fn is_available(&self) -> bool {
+        let mut guard = self.conn.lock().await;
+        if guard.is_none() {
+            match Self::connect_client().await {
+                Ok(client) => *guard = Some(client),
+                Err(_) => return false,
+            }
+        }
+        // Probe with a cheap request so a server that died since we connected
+        // is detected and the stale handle dropped.
+        match guard.as_mut().unwrap().get_controller_count().await {
+            Ok(_) => true,
+            Err(_) => {
+                *guard = None;
+                false
+            }
+        }
+    }
+
+    async fn list_devices(&self) -> Result<Vec<RgbDevice>> {
+        with_conn!(self, |client| Self::fetch_devices(client))
+    }
+
+    async fn set_zone_color(
+        &self,
+        device_index: usize,
+        zone_index: usize,
+        color: RgbColor,
+    ) -> Result<()> {
+        with_conn!(self, |client| Self::apply_zone_color(
+            client,
+            device_index,
+            zone_index,
+            color
+        ))
+    }
+
+    async fn resize_zone(
+        &self,
+        device_index: usize,
+        zone_index: usize,
+        led_count: usize,
+    ) -> Result<()> {
+        with_conn!(self, |client| Self::apply_resize_zone(
+            client,
+            device_index,
+            zone_index,
+            led_count
+        ))
+    }
+
+    async fn set_device_mode(&self, device_index: usize, mode: LightingMode) -> Result<()> {
+        with_conn!(self, |client| Self::apply_device_mode(
+            client,
+            device_index,
+            mode
+        ))
+    }
+
+    async fn save_profile(&self, name: &str) -> Result<()> {
+        with_conn!(self, |client| Self::do_save_profile(client, name))
+    }
+
+    async fn load_profile(&self, name: &str) -> Result<()> {
+        with_conn!(self, |client| Self::do_load_profile(client, name))
     }
 }
 
@@ -219,7 +298,7 @@ pub async fn is_available() -> bool {
 }
 
 pub async fn auto_configure_uninitialized_zones() -> Result<AutoConfigureZonesReport> {
-    let client = OpenRgbDriver::connect().await?;
+    let client = OpenRgbDriver::connect_client().await?;
     let group = client
         .get_all_controllers()
         .await
@@ -239,8 +318,7 @@ pub async fn auto_configure_uninitialized_zones() -> Result<AutoConfigureZonesRe
                 continue;
             }
 
-            zone
-                .resize(zone.leds_min())
+            zone.resize(zone.leds_min())
                 .await
                 .map_err(|e| GlowmintError::OpenRgbUnavailable(e.to_string()))?;
             zone_labels.push(format!("{device_name} / {}", zone.name()));

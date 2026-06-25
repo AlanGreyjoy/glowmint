@@ -7,6 +7,16 @@ use crate::domain::error::{GlowmintError, Result};
 use crate::domain::models::fan_curve::{CoolingStatus, FanCurve, PumpPreset};
 use crate::domain::traits::CoolingController;
 
+/// ASCII case-insensitive substring check that avoids allocating a lowercased copy of each
+/// status line. `needle` must be lowercase and non-empty.
+fn contains_ci(haystack: &str, needle: &str) -> bool {
+    let needle = needle.as_bytes();
+    haystack
+        .as_bytes()
+        .windows(needle.len())
+        .any(|window| window.eq_ignore_ascii_case(needle))
+}
+
 pub struct LiquidctlDriver;
 
 impl LiquidctlDriver {
@@ -63,20 +73,19 @@ impl LiquidctlDriver {
         };
 
         for line in output.lines() {
-            let lower = line.to_lowercase();
-            if lower.contains("water") && lower.contains("temp") {
+            if contains_ci(line, "water") && contains_ci(line, "temp") {
                 status.water_temp_c = Self::parse_f32(line, "temperature");
-            } else if lower.contains("probe") && lower.contains("temp") {
+            } else if contains_ci(line, "probe") && contains_ci(line, "temp") {
                 status.probe_temp_c = Self::parse_f32(line, "temperature");
-            } else if lower.contains("pump") && lower.contains("speed") {
+            } else if contains_ci(line, "pump") && contains_ci(line, "speed") {
                 status.pump_speed_rpm = Self::parse_u32(line, "speed");
-            } else if lower.contains("pump") && lower.contains("duty") {
+            } else if contains_ci(line, "pump") && contains_ci(line, "duty") {
                 status.pump_duty_percent = Self::parse_u32(line, "duty").map(|v| v as u8);
-            } else if lower.contains("fan") && lower.contains("speed") {
+            } else if contains_ci(line, "fan") && contains_ci(line, "speed") {
                 if let Some(rpm) = Self::parse_u32(line, "speed") {
                     status.fan_speeds_rpm.push(rpm);
                 }
-            } else if lower.contains("fan") && lower.contains("duty") {
+            } else if contains_ci(line, "fan") && contains_ci(line, "duty") {
                 if let Some(duty) = Self::parse_u32(line, "duty") {
                     status.fan_duties_percent.push(duty as u8);
                 }

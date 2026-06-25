@@ -132,7 +132,7 @@ function FixResultModal({
       ? 'border-green-500/30 bg-green-500/10 text-green-200'
       : feedback?.tone === 'error'
         ? 'border-red-500/30 bg-red-500/10 text-red-200'
-        : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200';
+        : 'border-teal-500/30 bg-teal-500/10 text-teal-200';
 
   return (
     <Dialog open={opened && feedback !== null} onOpenChange={(open) => !open && onClose()}>
@@ -198,7 +198,7 @@ function HardwareItem({ device }: { device: UsbDeviceInfo }) {
           <p className="text-sm font-medium">{hint}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{device.description}</p>
         </div>
-        <p className="font-mono text-xs text-cyan-300">
+        <p className="font-mono text-xs text-emerald-300">
           {device.vendor_id.toString(16)}:{device.product_id.toString(16).padStart(4, '0')}
         </p>
       </div>
@@ -218,7 +218,7 @@ export function DetectedHardwarePanel({ report }: DetectedHardwarePanelProps) {
           variant="outline"
           className={
             corsair_devices.length > 0
-              ? 'border-cyan-500/30 bg-cyan-500/15 text-cyan-300'
+              ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
               : 'text-muted-foreground'
           }
         >
@@ -229,12 +229,12 @@ export function DetectedHardwarePanel({ report }: DetectedHardwarePanelProps) {
       {has_lcd_hardware || has_aio_hardware ? (
         <div className="mb-4 flex flex-wrap gap-2">
           {has_lcd_hardware ? (
-            <Badge variant="outline" className="border-cyan-500/30 text-cyan-300">
+            <Badge variant="outline" className="border-emerald-500/30 text-emerald-300">
               LCD screen
             </Badge>
           ) : null}
           {has_aio_hardware ? (
-            <Badge variant="outline" className="border-blue-500/30 text-blue-300">
+            <Badge variant="outline" className="border-teal-500/30 text-teal-300">
               AIO cooler
             </Badge>
           ) : null}
@@ -376,7 +376,7 @@ export function SystemChecksPanel({
         </Badge>
       }
     >
-      {message ? <p className="mb-4 text-sm text-cyan-200">{message}</p> : null}
+      {message ? <p className="mb-4 text-sm text-emerald-200">{message}</p> : null}
 
       <ProgressSheet
         opened={fixInProgress && progressSheet !== null}

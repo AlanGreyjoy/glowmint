@@ -1,19 +1,29 @@
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use async_trait::async_trait;
 
+use crate::cache::TtlCache;
 use crate::domain::error::{GlowmintError, Result};
 use crate::domain::models::device::{Device, DeviceKind};
 use crate::domain::models::rgb::RgbColor;
 use crate::domain::traits::PeripheralController;
 
-pub struct CkbNextDriver;
+/// The set of plugged-in ckb-next devices rarely changes, so the dashboard's 3s poll
+/// reuses a cached scan instead of re-reading `/dev/input` and per-device files each time.
+const DEVICE_CACHE_TTL: Duration = Duration::from_secs(2);
+
+pub struct CkbNextDriver {
+    device_cache: TtlCache<Vec<Device>>,
+}
 
 impl CkbNextDriver {
     pub fn new() -> Self {
-        Self
+        Self {
+            device_cache: TtlCache::new(DEVICE_CACHE_TTL),
+        }
     }
 
     fn ckb_root() -> PathBuf {
@@ -35,11 +45,13 @@ impl CkbNextDriver {
         paths
     }
 
-    fn read_device_info(path: &PathBuf) -> Result<(String, DeviceKind)> {
+    fn read_device_info(path: &Path) -> Result<(String, DeviceKind)> {
         let name_path = path.join("name");
         let model_path = path.join("model");
         let name = fs::read_to_string(&name_path).unwrap_or_else(|_| "Corsair Device".to_string());
-        let model = fs::read_to_string(&model_path).unwrap_or_default().to_lowercase();
+        let model = fs::read_to_string(&model_path)
+            .unwrap_or_default()
+            .to_lowercase();
         let kind = if model.contains("keyboard") || name.to_lowercase().contains("keyboard") {
             DeviceKind::Keyboard
         } else if model.contains("mouse") || name.to_lowercase().contains("mouse") {
@@ -52,7 +64,7 @@ impl CkbNextDriver {
         Ok((name.trim().to_string(), kind))
     }
 
-    fn send_command(path: &PathBuf, command: &str) -> Result<()> {
+    fn send_command(path: &Path, command: &str) -> Result<()> {
         let cmd_path = path.join("cmd");
         if !cmd_path.exists() {
             return Err(GlowmintError::CkbNextUnavailable(format!(
@@ -84,21 +96,9 @@ impl CkbNextDriver {
         }
         Err(GlowmintError::DeviceNotFound(device_id.to_string()))
     }
-}
 
-impl Default for CkbNextDriver {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl PeripheralController for CkbNextDriver {
-    async fn is_available(&self) -> bool {
-        Self::ckb_root().join("ckb0").exists()
-    }
-
-    async fn list_devices(&self) -> Result<Vec<Device>> {
+    /// Blocking scan of `/dev/input` for ckb-next device nodes. Runs on a blocking thread.
+    fn scan_devices() -> Result<Vec<Device>> {
         let mut devices = Vec::new();
         for path in Self::device_paths() {
             let id = format!("ckb:{}", path.file_name().unwrap().to_string_lossy());
@@ -119,6 +119,31 @@ impl PeripheralController for CkbNextDriver {
             devices.push(device);
         }
         Ok(devices)
+    }
+}
+
+impl Default for CkbNextDriver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl PeripheralController for CkbNextDriver {
+    async fn is_available(&self) -> bool {
+        Self::ckb_root().join("ckb0").exists()
+    }
+
+    async fn list_devices(&self) -> Result<Vec<Device>> {
+        self.device_cache
+            .get_or_refresh(|| async {
+                tokio::task::spawn_blocking(Self::scan_devices)
+                    .await
+                    .map_err(|e| {
+                        GlowmintError::CkbNextUnavailable(format!("ckb scan task failed: {e}"))
+                    })?
+            })
+            .await
     }
 
     async fn set_rgb(&self, device_id: &str, color: RgbColor) -> Result<()> {

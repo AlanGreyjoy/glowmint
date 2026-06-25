@@ -49,7 +49,7 @@ export function PeripheralsPage() {
         }
       />
 
-      {message ? <p className="text-sm text-cyan-200">{message}</p> : null}
+      {message ? <p className="text-sm text-emerald-200">{message}</p> : null}
 
       <SectionCard title="Detected peripherals">
         {devices.length === 0 ? (

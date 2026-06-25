@@ -40,23 +40,25 @@ impl AppState {
 }
 
 pub fn build_app_state() -> Result<AppState, crate::domain::error::GlowmintError> {
-    use crate::domain::traits::{CoolingController, LcdController, PeripheralController, RgbController};
+    use crate::domain::traits::{
+        CoolingController, LcdController, PeripheralController, RgbController,
+    };
     use crate::drivers::{CkbNextDriver, CorsairLcdDriver, LiquidctlDriver, OpenRgbDriver};
     use crate::stores::{ConfigStore, ProfileStore};
 
     let lcd: Arc<dyn LcdController> = Arc::new(CorsairLcdDriver::new());
     let cooling: Arc<dyn CoolingController> = Arc::new(LiquidctlDriver::new());
-    let rgb: Arc<dyn RgbController> = Arc::new(OpenRgbDriver::new());
-    let peripherals_driver: Arc<dyn PeripheralController> = Arc::new(CkbNextDriver::new());
 
-    let rgb_for_devices = Arc::new(OpenRgbDriver::new());
-    let peripherals_for_devices = Arc::new(CkbNextDriver::new());
+    // Single shared instances so the OpenRGB connection cache and ckb-next
+    // device cache are reused by both discovery and the per-domain services.
+    let rgb = Arc::new(OpenRgbDriver::new());
+    let peripherals = Arc::new(CkbNextDriver::new());
 
     Ok(AppState::new(
-        DeviceService::new(rgb_for_devices, peripherals_for_devices),
+        DeviceService::new(Arc::clone(&rgb), Arc::clone(&peripherals)),
         AioService::new(lcd, cooling),
-        LightingService::new(rgb),
-        PeripheralService::new(peripherals_driver),
+        LightingService::new(Arc::clone(&rgb) as Arc<dyn RgbController>),
+        PeripheralService::new(Arc::clone(&peripherals) as Arc<dyn PeripheralController>),
         ProfileService::new(ProfileStore::new()?)?,
         SetupService::new(ConfigStore::new()?)?,
     ))
@@ -79,7 +81,11 @@ pub async fn lcd_status(state: tauri::State<'_, AppState>) -> Result<LcdStatus, 
 
 #[tauri::command]
 pub async fn lcd_set_image(state: tauri::State<'_, AppState>, path: String) -> Result<(), String> {
-    state.aio.set_lcd_image(&path).await.map_err(|e| e.to_string())
+    state
+        .aio
+        .set_lcd_image(&path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -110,7 +116,13 @@ pub async fn lcd_set_brightness(
 
 #[tauri::command]
 pub async fn lcd_preview_data_url(path: String) -> Result<String, String> {
-    crate::drivers::corsair_lcd::lcd_file_preview_data_url(&path).map_err(|e| e.to_string())
+    // Decode + downscale + encode is CPU-bound; keep it off the async runtime.
+    tokio::task::spawn_blocking(move || {
+        crate::drivers::corsair_lcd::lcd_file_preview_data_url(&path)
+    })
+    .await
+    .map_err(|e| format!("preview task failed: {e}"))?
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -120,7 +132,11 @@ pub async fn lcd_stop_gif(state: tauri::State<'_, AppState>) -> Result<(), Strin
 
 #[tauri::command]
 pub async fn cooling_initialize(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.aio.initialize_cooling().await.map_err(|e| e.to_string())
+    state
+        .aio
+        .initialize_cooling()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -133,12 +149,20 @@ pub async fn set_pump_preset(
     state: tauri::State<'_, AppState>,
     preset: PumpPreset,
 ) -> Result<(), String> {
-    state.aio.set_pump_preset(preset).await.map_err(|e| e.to_string())
+    state
+        .aio
+        .set_pump_preset(preset)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn set_pump_duty(state: tauri::State<'_, AppState>, duty: u8) -> Result<(), String> {
-    state.aio.set_pump_duty(duty).await.map_err(|e| e.to_string())
+    state
+        .aio
+        .set_pump_duty(duty)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -169,7 +193,11 @@ pub async fn set_fan_curve(
 
 #[tauri::command]
 pub async fn list_rgb_devices(state: tauri::State<'_, AppState>) -> Result<Vec<RgbDevice>, String> {
-    state.lighting.list_devices().await.map_err(|e| e.to_string())
+    state
+        .lighting
+        .list_devices()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -278,10 +306,7 @@ pub async fn run_setup_checks(state: tauri::State<'_, AppState>) -> Result<Setup
 }
 
 #[tauri::command]
-pub fn complete_onboarding(
-    state: tauri::State<'_, AppState>,
-    skipped: bool,
-) -> Result<(), String> {
+pub fn complete_onboarding(state: tauri::State<'_, AppState>, skipped: bool) -> Result<(), String> {
     state
         .setup
         .complete_onboarding(skipped)

@@ -57,6 +57,14 @@ function Button({
     loading?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : 'button';
+  const content = asChild ? (
+    children
+  ) : (
+    <>
+      {loading ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
+      {children}
+    </>
+  );
 
   return (
     <Comp
@@ -67,8 +75,7 @@ function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
-      {children}
+      {content}
     </Comp>
   );
 }

@@ -1,3 +1,4 @@
+mod cache;
 mod domain;
 mod drivers;
 mod services;

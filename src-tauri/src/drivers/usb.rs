@@ -1,22 +1,27 @@
 use std::process::Command;
+use std::sync::OnceLock;
 
 use regex::Regex;
 
 use crate::domain::error::Result;
 use crate::domain::models::device::{Device, UsbDeviceInfo};
 
+fn lsusb_line_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"Bus (\d+) Device (\d+): ID ([0-9a-f]{4}):([0-9a-f]{4}) (.+)").unwrap()
+    })
+}
+
 pub fn list_corsair_usb_devices() -> Result<Vec<UsbDeviceInfo>> {
-    let output = Command::new("lsusb")
-        .arg("-d")
-        .arg("1b1c:")
-        .output()?;
+    let output = Command::new("lsusb").arg("-d").arg("1b1c:").output()?;
 
     if !output.status.success() {
         return Ok(Vec::new());
     }
 
     let text = String::from_utf8_lossy(&output.stdout);
-    let re = Regex::new(r"Bus (\d+) Device (\d+): ID ([0-9a-f]{4}):([0-9a-f]{4}) (.+)").unwrap();
+    let re = lsusb_line_regex();
     let mut devices = Vec::new();
 
     for line in text.lines() {

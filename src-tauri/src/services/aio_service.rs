@@ -1,18 +1,29 @@
 use std::sync::Arc;
+use std::time::Duration;
 
+use crate::cache::TtlCache;
 use crate::domain::error::Result;
 use crate::domain::models::fan_curve::{CoolingStatus, FanCurve, PumpPreset};
 use crate::domain::models::lcd::LcdStatus;
 use crate::domain::traits::{CoolingController, LcdController};
 
+/// liquidctl spawns a subprocess and re-opens USB HID per call. The AIO page polls every
+/// 3s and also refreshes after each control action, so coalesce/cache for a short window.
+const COOLING_STATUS_TTL: Duration = Duration::from_millis(2500);
+
 pub struct AioService {
     lcd: Arc<dyn LcdController>,
     cooling: Arc<dyn CoolingController>,
+    cooling_cache: TtlCache<CoolingStatus>,
 }
 
 impl AioService {
     pub fn new(lcd: Arc<dyn LcdController>, cooling: Arc<dyn CoolingController>) -> Self {
-        Self { lcd, cooling }
+        Self {
+            lcd,
+            cooling,
+            cooling_cache: TtlCache::new(COOLING_STATUS_TTL),
+        }
     }
 
     pub async fn lcd_status(&self) -> Result<LcdStatus> {
@@ -40,7 +51,9 @@ impl AioService {
     }
 
     pub async fn cooling_status(&self) -> Result<CoolingStatus> {
-        self.cooling.status().await
+        self.cooling_cache
+            .get_or_refresh(|| self.cooling.status())
+            .await
     }
 
     pub async fn set_pump_preset(&self, preset: PumpPreset) -> Result<()> {

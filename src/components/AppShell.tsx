@@ -37,7 +37,7 @@ export function AppShellLayout({ children }: { children: ReactNode }) {
                   cn(
                     'flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all',
                     isActive
-                      ? 'bg-linear-to-r from-violet-500/60 to-sky-400/34 text-white shadow-[0_12px_32px_rgba(55,67,160,0.2)]'
+                      ? 'bg-linear-to-r from-emerald-500/55 to-teal-400/30 text-white shadow-[0_12px_32px_rgba(16,185,129,0.22)]'
                       : 'text-white/76 hover:bg-white/12 hover:text-white',
                   )
                 }

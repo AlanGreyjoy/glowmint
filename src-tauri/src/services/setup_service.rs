@@ -12,8 +12,8 @@ use crate::drivers::corsair_lcd::device::{CORSAIR_VID, LCD_PID_ALT, LCD_PID_ELIT
 use crate::drivers::liquidctl;
 use crate::drivers::openrgb;
 use crate::drivers::setup_probe::{
-    ckb_next_daemon_running, command_exists, detect_environment, has_aio_hardware, has_lcd_hardware,
-    udev_rules_installed, DetectedEnvironment, PackageManager, UDEV_RULES_PATH,
+    ckb_next_daemon_running, command_exists, detect_environment, has_aio_hardware,
+    has_lcd_hardware, udev_rules_installed, DetectedEnvironment, PackageManager, UDEV_RULES_PATH,
 };
 use crate::drivers::usb;
 use crate::stores::ConfigStore;
@@ -85,6 +85,17 @@ impl SetupService {
     }
 
     pub async fn run_checks(&self) -> Result<SetupReport> {
+        // The only async probes are the two backend availability checks; run them, then do
+        // all the blocking work (lsusb, `which`, HID open, file reads) on a blocking thread
+        // so the async runtime is never stalled by the setup scan.
+        let liquidctl_ok = liquidctl::is_available().await;
+        let openrgb_srv = openrgb::is_available().await;
+        tokio::task::spawn_blocking(move || Self::build_setup_report(liquidctl_ok, openrgb_srv))
+            .await
+            .map_err(|e| GlowmintError::Other(format!("setup check task failed: {e}")))?
+    }
+
+    fn build_setup_report(liquidctl_ok: bool, openrgb_srv: bool) -> Result<SetupReport> {
         let env = detect_environment();
         let install_cmd = install_packages_command(env.package_manager);
         let ckb_service_cmd = ckb_next_service_command(env.package_manager);
@@ -134,7 +145,6 @@ impl SetupService {
             can_auto_fix: false,
         });
 
-        let liquidctl_ok = liquidctl::is_available().await;
         checks.push(SetupCheck {
             id: "liquidctl_binary".into(),
             label: "liquidctl (AIO pump/fans)".into(),
@@ -178,7 +188,6 @@ impl SetupService {
             can_auto_fix: package_check_can_auto_fix(!openrgb_bin, &env),
         });
 
-        let openrgb_srv = openrgb::is_available().await;
         checks.push(SetupCheck {
             id: "openrgb_server".into(),
             label: "OpenRGB SDK server".into(),
@@ -636,9 +645,7 @@ fn compute_needs_wizard(config: &AppConfig, report: &SetupReport) -> bool {
 }
 
 fn has_actionable_hardware(report: &SetupReport) -> bool {
-    report.has_lcd_hardware
-        || report.has_aio_hardware
-        || !report.corsair_devices.is_empty()
+    report.has_lcd_hardware || report.has_aio_hardware || !report.corsair_devices.is_empty()
 }
 
 pub fn setup_incomplete_for_banner(status: &SetupStatus) -> bool {

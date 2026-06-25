@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import {
@@ -36,11 +36,17 @@ export function AioPage() {
     3000,
   );
 
+  // Path of the image currently rendered in the preview, so we don't re-fetch and re-encode
+  // the same (potentially multi-MB) file when status refreshes right after applying it.
+  const previewPathRef = useRef<string | null>(null);
+
   const setPreviewFromPath = useCallback(async (path: string) => {
     try {
       setPreviewUrl(await api.lcdPreviewDataUrl(path));
+      previewPathRef.current = path;
     } catch (err) {
       setPreviewUrl(null);
+      previewPathRef.current = null;
       setMessage(String(err));
     }
   }, []);
@@ -51,9 +57,12 @@ export function AioPage() {
       setLcdStatus(status);
       const path = lcdContentPath(status.current_content);
       if (path) {
-        await setPreviewFromPath(path);
+        if (previewPathRef.current !== path) {
+          await setPreviewFromPath(path);
+        }
       } else {
         setPreviewUrl(null);
+        previewPathRef.current = null;
       }
     } catch (err) {
       setMessage(String(err));
@@ -101,7 +110,7 @@ export function AioPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title="AIO / LCD" description="Elite LCD screen and Commander Core cooling" />
 
-      {message ? <p className="text-sm text-cyan-200">{message}</p> : null}
+      {message ? <p className="text-sm text-emerald-200">{message}</p> : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard title="LCD Editor">
