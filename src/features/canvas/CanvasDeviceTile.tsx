@@ -4,6 +4,7 @@ import { Settings } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
+import { useCanvasViewportContext } from './CanvasViewportContext';
 import { DeviceShape } from './DeviceShapes';
 import type { CanvasDeviceView } from './utils';
 
@@ -20,50 +21,39 @@ export function CanvasDeviceTile({
   onOpenSettings,
   onMove,
 }: CanvasDeviceTileProps) {
-  const dragState = useRef<{ offsetX: number; offsetY: number } | null>(null);
+  const { screenToWorld, panAtClientPoint } = useCanvasViewportContext();
+  const dragCleanupRef = useRef<(() => void) | null>(null);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+
     event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    dragCleanupRef.current?.();
 
-    const canvas = event.currentTarget.closest('[data-canvas-root="true"]') as HTMLElement | null;
-    const bounds = canvas?.getBoundingClientRect();
-    const originLeft = bounds?.left ?? 0;
-    const originTop = bounds?.top ?? 0;
+    const world = screenToWorld(event.clientX, event.clientY);
+    const offsetX = world.x - device.x;
+    const offsetY = world.y - device.y;
 
-    dragState.current = {
-      offsetX: event.clientX - originLeft - device.x,
-      offsetY: event.clientY - originTop - device.y,
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      panAtClientPoint(moveEvent.clientX, moveEvent.clientY);
+      const nextWorld = screenToWorld(moveEvent.clientX, moveEvent.clientY);
+      onMove(device.deviceKey, nextWorld.x - offsetX, nextWorld.y - offsetY);
     };
-  };
 
-  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragState.current) return;
+    const onPointerEnd = () => {
+      dragCleanupRef.current?.();
+      dragCleanupRef.current = null;
+    };
 
-    const canvas = event.currentTarget.closest('[data-canvas-root="true"]') as HTMLElement | null;
-    const bounds = canvas?.getBoundingClientRect();
-    const originLeft = bounds?.left ?? 0;
-    const originTop = bounds?.top ?? 0;
-    const minX = 8;
-    const minY = 8;
-    const maxX = bounds ? bounds.width - 120 : 640;
-    const maxY = bounds ? bounds.height - 120 : 480;
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerEnd);
+    document.addEventListener('pointercancel', onPointerEnd);
 
-    const nextX = Math.min(
-      maxX,
-      Math.max(minX, event.clientX - originLeft - dragState.current.offsetX),
-    );
-    const nextY = Math.min(
-      maxY,
-      Math.max(minY, event.clientY - originTop - dragState.current.offsetY),
-    );
-
-    onMove(device.deviceKey, nextX, nextY);
-  };
-
-  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    dragState.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    dragCleanupRef.current = () => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerEnd);
+      document.removeEventListener('pointercancel', onPointerEnd);
+    };
   };
 
   return (
@@ -76,9 +66,6 @@ export function CanvasDeviceTile({
       )}
       style={{ left: device.x, top: device.y, width: 132 }}
       onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
     >
       <Button
         type="button"

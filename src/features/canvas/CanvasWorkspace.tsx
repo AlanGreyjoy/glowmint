@@ -1,3 +1,5 @@
+import { Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+
 import {
   Button,
   EmptyState,
@@ -10,8 +12,12 @@ import {
 } from '@/components/ui';
 
 import { CanvasDeviceTile } from './CanvasDeviceTile';
+import { CanvasViewport } from './CanvasViewport';
 import { DeviceInspector } from './DeviceInspector';
 import { useCanvasDevices } from './useCanvasDevices';
+import { useCanvasViewport } from './useCanvasViewport';
+
+const ZOOM_STEP = 1.1;
 
 export function CanvasWorkspace() {
   const {
@@ -30,19 +36,48 @@ export function CanvasWorkspace() {
     applyMode,
   } = useCanvasDevices();
 
+  const viewport = useCanvasViewport();
+
   if (loading) {
     return (
-      <div className="flex min-h-80 items-center justify-center">
+      <div className="flex min-h-0 flex-1 items-center justify-center">
         <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-white drop-shadow-sm">Device canvas</h2>
         <div className="flex items-center gap-2">
+          <span className="min-w-10 text-center text-xs text-white/55">
+            {Math.round(viewport.zoom * 100)}%
+          </span>
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Zoom out"
+            onClick={() => viewport.zoomBy(1 / ZOOM_STEP)}
+          >
+            <ZoomOut />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Zoom in"
+            onClick={() => viewport.zoomBy(ZOOM_STEP)}
+          >
+            <ZoomIn />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Reset view"
+            onClick={viewport.resetView}
+          >
+            <Maximize2 />
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => void refresh()}>
             Refresh
           </Button>
@@ -53,14 +88,24 @@ export function CanvasWorkspace() {
       </div>
 
       {devices.length === 0 ? (
-        <EmptyState message="No RGB devices found. Start OpenRGB or ckb-next to populate the canvas." />
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <EmptyState message="No RGB devices found. Start OpenRGB or ckb-next to populate the canvas." />
+        </div>
       ) : (
-        <div
-          data-canvas-root="true"
-          className="relative min-h-136 overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%),linear-gradient(180deg,rgba(8,18,32,0.35),rgba(4,10,18,0.65))]"
-          onPointerDown={() => setSelectedKey(null)}
+        <CanvasViewport
+          viewportRef={viewport.viewportRef}
+          panX={viewport.panX}
+          panY={viewport.panY}
+          zoom={viewport.zoom}
+          isSpacePressed={viewport.isSpacePressed}
+          isPanning={viewport.isPanning}
+          screenToWorld={viewport.screenToWorld}
+          panAtClientPoint={viewport.panAtClientPoint}
+          onBackgroundPointerDown={() => setSelectedKey(null)}
+          onPointerDown={viewport.handlePointerDown}
+          onPointerMove={viewport.handlePointerMove}
+          onPointerUp={viewport.handlePointerUp}
         >
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-size-[24px_24px]" />
           {devices.map((device) => (
             <CanvasDeviceTile
               key={device.deviceKey}
@@ -70,7 +115,7 @@ export function CanvasWorkspace() {
               onMove={moveDevice}
             />
           ))}
-        </div>
+        </CanvasViewport>
       )}
 
       <Sheet

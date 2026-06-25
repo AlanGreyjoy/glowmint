@@ -22,7 +22,7 @@ export function AppShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       {isDashboard ? <PageBackground /> : null}
-      <div className="relative z-1 flex min-h-screen bg-transparent text-white">
+      <div className="relative z-1 flex h-screen overflow-hidden bg-transparent text-white">
         <aside className="glowmint-glass glowmint-glass--panel w-48 shrink-0 rounded-none px-4 py-5 shadow-[28px_0_80px_rgba(4,14,24,0.12)]">
           <div className="mb-8">
             <h2 className="text-xl font-semibold tracking-tight text-white drop-shadow-sm">
@@ -53,7 +53,9 @@ export function AppShellLayout({ children }: { children: ReactNode }) {
             ))}
           </nav>
         </aside>
-        <main className="min-w-0 flex-1 px-6 py-5">{children}</main>
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-6 py-5">
+          {children}
+        </main>
       </div>
     </>
   );
